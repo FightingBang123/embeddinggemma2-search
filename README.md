@@ -12,12 +12,14 @@ llama.cpp 出向量，React 提供界面。两种形态共用同一套前端与�
 ```
 desktop/
 ├── package.json          Electron 45 + electron-builder
-├── electron-builder.yml   win(nsis) / mac(dmg) / linux(AppImage)
+├── electron-builder.yml   win(nsis/zip) / mac(dmg) / linux(AppImage)，不含模型
+├── electron-builder.offline.yml  离线包（GGUF 一起打进安装包）
+├── build/                  icon.ico / icon.png / entitlements.mac.plist
 ├── src/main/             主进程
 │   ├── main.js             生命周期、窗口、菜单、单实例
 │   ├── llama.js            拉起 llama-server（自动挑端口、等就绪、退出清理）
 │   ├── api.js              本地 HTTP：/api/* + 托管前端
-│   ├── store.js            index.json + chunks.jsonl + vectors.f32
+│   ├── store-sqlite.js     SQLite 向量库（与服务器端同 schema）
 │   ├── chunk.js            切块（与 Python 版同规则）
 │   ├── download.js         首次启动下载 GGUF（进度）
 │   └── paths.js            数据/资源目录解析
@@ -35,14 +37,23 @@ npm run fetch-runtime       # 取当前平台的 llama.cpp；加 --with-model �
 npm run selfcheck           # 不起窗口，验证 推理 + 上传 + 检索
 npm start                   # 开发运行（需正常桌面会话）
 npm run dist:win            # 打包；另有 dist:mac / dist:linux
+npm run dist:win:offline    # 离线包（含 296 MB 模型）
 ```
 
-打包前需先 `build\build.ps1` 产出 `release\web`；产物输出到 `release\desktop\`。
-默认把 `resources/models` 一起打进包（免安装目录约 800 MB，NSIS 安装包压缩后约 350 MB）；想瘦身就删掉 `electron-builder.yml` 里 `models` 那段，首次启动会引导用户下载。
+打包前先 `build\build.ps1` 产出 `release\web`，图标由 `python build\make-icon.py` 生成到 `desktop\build\`。
+默认包**不带模型**（首次启动向导下载），产物在 `release\desktop\`：
+
+| 产物 | 体积 | 说明 |
+|---|---|---|
+| `EmbeddingGemma2-<v>-win-x64.zip` | ~198 MB | 免安装，解压即用；首次启动下载模型 |
+| `EmbeddingGemma2-<v>-win-offline-x64.zip` | ~467 MB | 含 GGUF，完全离线 |
 
 ```bash
-npx electron-builder --dir    # 免安装目录（release/desktop/win-unpacked），CI/无签名环境更稳
+npx electron-builder --dir     # 只出免安装目录（最快，CI 友好）
+npx electron-builder --win nsis  # 需要 NSIS；受限环境可能因 makensis mmap 失败
 ```
+
+签名/公证：配置已就位（无证书自动跳过），步骤见 [docs/SIGNING.md](docs/SIGNING.md)。
 
 
 ## 服务器模式

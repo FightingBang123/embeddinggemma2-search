@@ -12,6 +12,8 @@ release/models/
 release/runtime/
 release/web/
 release/desktop/
+release/desktop-offline/
+release/SHA256SUMS.txt
 build/cache/
 build/out/
 dist/

@@ -8,7 +8,7 @@ const path = require('node:path');
 
 const { resolvePaths, PROJECT_ROOT } = require('../src/main/paths');
 const { LlamaServer } = require('../src/main/llama');
-const { VectorStore } = require('../src/main/store');
+const { SqliteStore } = require('../src/main/store-sqlite');
 const { createApiServer } = require('../src/main/api');
 
 const DESKTOP = path.resolve(__dirname, '..');
@@ -64,7 +64,7 @@ async function search(base, query, extra = {}) {
     await llama.start();
     console.log(`[selfcheck] llama ready in ${Date.now() - t0} ms ->`, llama.baseUrl);
 
-    const store = new VectorStore(paths);
+    const store = new SqliteStore(paths);
     const app = createApiServer({ store, llama, paths, appVersion: '1.0.0-selfcheck', platform: process.platform });
     const port = await app.listen(0);
     const base = `http://127.0.0.1:${port}`;

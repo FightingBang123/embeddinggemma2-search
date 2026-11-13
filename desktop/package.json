@@ -10,8 +10,10 @@
     "start": "electron .",
     "selfcheck": "node scripts/selfcheck.js",
     "fetch-runtime": "node scripts/fetch-runtime.mjs",
+    "icon": "python ../build/make-icon.py",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
+    "dist:win:offline": "electron-builder --win --config electron-builder.offline.yml",
     "dist:mac": "electron-builder --mac",
     "dist:linux": "electron-builder --linux"
   },

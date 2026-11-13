@@ -1,4 +1,9 @@
 'use strict';
+// node:sqlite 在 Node 24 仍标记 experimental，启动时刷一行警告，过滤掉
+process.on('warning', (w) => {
+  if (w.name === 'ExperimentalWarning' && /SQLite/i.test(w.message)) return;
+  console.warn(w);
+});
 /**
  * Electron 主进程：拉起 llama-server + 本地 API 服务，再开窗口加载 UI。
  * 开发：`npm start`（内部走 release/web 或 vite dev server）
@@ -10,7 +15,7 @@ const path = require('node:path');
 
 const { resolvePaths } = require('./paths');
 const { LlamaServer, resolveBinary } = require('./llama');
-const { VectorStore } = require('./store');
+const { SqliteStore } = require('./store-sqlite');
 const { createApiServer } = require('./api');
 const { downloadModel, modelUrl } = require('./download');
 
@@ -98,7 +103,7 @@ async function startStack() {
   }
 
   await llama.start();
-  const store = new VectorStore(paths);
+  const store = new SqliteStore(paths);
   api = createApiServer({
     store,
     llama,

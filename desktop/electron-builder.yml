@@ -20,39 +20,69 @@ files:
 asarUnpack:
   - node_modules/pdf-parse/**/*
 
-# 随包携带：推理运行时 + 前端构建产物 + 模型
-# 想减小安装包：删掉 models 这一段，首次启动会让用户下载到 userData
+# 随包携带：推理运行时 + 前端构建产物。
+# 模型默认不带（首次启动向导下载到 userData，安装包小很多且不受 NSIS 32 位 mmap 限制）；
+# 需要离线包用 electron-builder.offline.yml。
 extraResources:
   - from: resources/runtime
     to: runtime
   - from: ../release/web
     to: web
-  - from: resources/models
-    to: models
 
+# ---------------------------------------------------------------
+# 代码签名占位：配置已就位，但没有证书时自动跳过（不影响构建）。
+# 环境变量（CI 用）：
+#   CSC_LINK / CSC_KEY_PASSWORD        Windows PFX（base64 或路径）
+#   CSC_NAME                           或直接指定证书主题名（证书在商店里时）
+#   APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID    macOS 公证
+# 详细步骤见 docs/SIGNING.md
+# ---------------------------------------------------------------
 win:
+  icon: build/icon.ico
   target:
     - target: nsis
       arch: [x64]
   artifactName: ${productName}-${version}-win-${arch}.${ext}
+  signtoolOptions:
+    signingHashAlgorithms: [sha256]
+    rfc3161TimeStampServer: http://timestamp.digicert.com
+    # certificateFile: build/certs/windows.pfx      # 或改用环境变量 CSC_LINK
+    # certificatePassword: ${env.CSC_KEY_PASSWORD}  # 生产只走环境变量
+    # certificateSubjectName: "Your Company Ltd."   # 证书已装进证书存储时用
 
 nsis:
-  oneClick: false
+  # 一键安装（当前用户，无需管理员）；assisted 模式的安装目录选择页在本机 NSIS 下会报宏错误
+  oneClick: true
   perMachine: false
-  allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
+  createStartMenuShortcut: true
   shortcutName: EmbeddingGemma 2
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
 
 mac:
+  icon: build/icon.png
   category: public.app-category.productivity
   target:
     - target: dmg
       arch: [arm64, x64]
   artifactName: ${productName}-${version}-mac-${arch}.${ext}
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # 有 Developer ID 证书时把 notarize 打开（需要上面的 APPLE_* 环境变量）
+  notarize: false
 
 linux:
+  icon: build/icon.png
   category: Utility
   target:
     - target: AppImage
       arch: [x64]
   artifactName: ${productName}-${version}-linux-${arch}.${ext}
+  desktop:
+    entry:
+      Name: EmbeddingGemma 2
+      Comment: 本地语义检索（EmbeddingGemma 2 + llama.cpp）
+      Categories: Utility;Office;

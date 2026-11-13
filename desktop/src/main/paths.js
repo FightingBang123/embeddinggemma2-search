@@ -31,7 +31,9 @@ function resolvePaths(overrides = {}) {
     data,
     web,
     logs,
-    dbFile: path.join(data, 'index.json'),
+    // 与服务器端同名同结构：两种形态可共用/互换同一个 app.db
+    dbFile: path.join(data, 'app.db'),
+    indexFile: path.join(data, 'index.json'),
     vectorsFile: path.join(data, 'vectors.f32'),
     chunksFile: path.join(data, 'chunks.jsonl'),
     modelDir,

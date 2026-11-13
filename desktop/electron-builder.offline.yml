@@ -1,0 +1,49 @@
+# 离线包：把 GGUF 一起打进安装包（体积大，首次启动无需联网）。
+#   npm run dist:win:offline
+# 说明：模型约 296 MB，NSIS 压缩后安装包 ~400 MB；32 位 makensis 处理超大包时可能
+# 报 "error creating mmap"，若遇到请改用 zip 目标或减小模型。
+appId: com.pzibang.embeddinggemma2
+productName: EmbeddingGemma2
+copyright: Copyright © 2026 pzibang
+
+directories:
+  output: ../release/desktop-offline
+  buildResources: build
+
+npmRebuild: false
+electronDist: node_modules/electron/dist
+
+files:
+  - src/**/*
+  - package.json
+  - '!**/*.map'
+
+asarUnpack:
+  - node_modules/pdf-parse/**/*
+
+extraResources:
+  - from: resources/runtime
+    to: runtime
+  - from: ../release/web
+    to: web
+  - from: resources/models
+    to: models
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ${productName}-${version}-win-offline-${arch}.${ext}
+  signtoolOptions:
+    signingHashAlgorithms: [sha256]
+    rfc3161TimeStampServer: http://timestamp.digicert.com
+
+nsis:
+  oneClick: true
+  perMachine: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: EmbeddingGemma 2
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
