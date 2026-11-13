@@ -92,3 +92,12 @@ desktop: npm run dist:win|mac|linux ──▶ release/desktop
 | 只做向量检索 | 语义问答足够，少一套索引 | 精确型号/错误码召回弱 |
 | 模型默认随包 | 离线可用、开箱即用 | 安装包 +300 MB（可配置去掉） |
 | 单用户、无鉴权 | 只绑 127.0.0.1 | 多人共享走服务器模式 + 反代鉴权 |
+
+## 已知限制
+
+- 桌面端两套前端产物同源，但**两个后端各有一套存储实现**（Node 的 json/jsonl/f32 与 Python 的 SQLite），改动检索/切块逻辑时需同步。
+- 向量检索是暴力余弦：10 万块以内可用，再大需要 ANN（HNSW/FAISS）。
+- 打包安装包需要正常桌面环境：`electron-builder --dir` 只做目录，`nsis`/`dmg`/`AppImage` 会调用 7z 等外部工具；受限环境（如本仓库的自动化沙箱）只能产出 `--dir`。
+- 未做自动更新（electron-updater）、未签名（Windows SmartScreen 会提示）、未配图标（用 Electron 默认图标）。
+- 首次启动引导下载基于 hf-mirror；若目标环境只能直连 Hugging Face，用 `HF_MIRROR=https://huggingface.co` 覆盖。
+

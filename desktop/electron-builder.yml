@@ -6,6 +6,12 @@ directories:
   output: ../release/desktop
   buildResources: build
 
+# 依赖全是纯 JS（pdf-parse），无需编译原生模块，跳过 rebuild 更快也少一类环境坑
+npmRebuild: false
+
+# 直接用本地已下载的 Electron 分发，避免构建时再去官方 CDN 取一份
+electronDist: node_modules/electron/dist
+
 files:
   - src/**/*
   - package.json

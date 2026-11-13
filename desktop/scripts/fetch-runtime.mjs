@@ -78,6 +78,22 @@ async function download(url, dest) {
   return dest;
 }
 
+function prune(dir) {
+  // 只保留 llama-server 与它的依赖库：其余 CLI/bench/quantize 约占 60 MB
+  let removed = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const name = entry.name;
+    const isLib = /\.(dll|so|dylib)$/i.test(name) || name.includes('.so.');
+    const isServer = /^llama-server/i.test(name);
+    const isMeta = /\.(json|txt|md)$/i.test(name) || /^LICENSE/i.test(name);
+    if (isLib || isServer || isMeta) continue;
+    fs.rmSync(path.join(dir, name), { force: true });
+    removed += 1;
+  }
+  if (removed) console.log(`[prune] removed ${removed} extra binaries`);
+}
+
 function extract(archive, dest, kind) {
   fs.mkdirSync(dest, { recursive: true });
   if (kind === 'zip') {
@@ -96,6 +112,7 @@ function extract(archive, dest, kind) {
       fs.rmdirSync(only);
     }
   }
+  prune(dest);
 }
 
 (async () => {

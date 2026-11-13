@@ -37,8 +37,13 @@ npm start                   # 开发运行（需正常桌面会话）
 npm run dist:win            # 打包；另有 dist:mac / dist:linux
 ```
 
-打包前需先 `build\build.ps1` 产出 `release\web`；安装包输出到 `release\desktop\`。
-默认把 `resources/models` 一起打进包（安装包约 300 MB）；想瘦身就删掉 `electron-builder.yml` 里 `models` 那段，首次启动会引导用户下载。
+打包前需先 `build\build.ps1` 产出 `release\web`；产物输出到 `release\desktop\`。
+默认把 `resources/models` 一起打进包（免安装目录约 800 MB，NSIS 安装包压缩后约 350 MB）；想瘦身就删掉 `electron-builder.yml` 里 `models` 那段，首次启动会引导用户下载。
+
+```bash
+npx electron-builder --dir    # 免安装目录（release/desktop/win-unpacked），CI/无签名环境更稳
+```
+
 
 ## 服务器模式
 
