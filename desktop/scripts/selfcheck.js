@@ -11,7 +11,11 @@ const { LlamaServer } = require('../src/main/llama');
 const { VectorStore } = require('../src/main/store');
 const { createApiServer } = require('../src/main/api');
 
-const RELEASE = path.join(PROJECT_ROOT, 'release');
+const DESKTOP = path.resolve(__dirname, '..');
+// 优先用桌面壳自己的 resources（打包前的真实布局），否则回退到 release/
+const RESOURCES = fs.existsSync(path.join(DESKTOP, 'resources', 'runtime'))
+  ? path.join(DESKTOP, 'resources')
+  : path.join(PROJECT_ROOT, 'release');
 
 async function upload(base, file) {
   const name = path.basename(file);
@@ -39,9 +43,9 @@ async function search(base, query, extra = {}) {
   fs.mkdirSync(dataDir, { recursive: true });
 
   const paths = resolvePaths({
-    resources: RELEASE,
-    modelDir: path.join(RELEASE, 'models'),
-    web: path.join(RELEASE, 'web'),
+    resources: RESOURCES,
+    modelDir: path.join(RESOURCES, 'models'),
+    web: path.join(PROJECT_ROOT, 'release', 'web'),
     data: dataDir,
     logs: path.join(dataDir, 'logs'),
   });
