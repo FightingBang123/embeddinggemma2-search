@@ -1,0 +1,25 @@
+{
+  "name": "embeddinggemma2-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EmbeddingGemma 2 本地语义检索 · 桌面版",
+  "main": "src/main/main.js",
+  "author": "pzibang",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "selfcheck": "node scripts/selfcheck.js",
+    "fetch-runtime": "node scripts/fetch-runtime.mjs",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
+  },
+  "dependencies": {
+    "pdf-parse": "^2.4.5"
+  },
+  "devDependencies": {
+    "electron": "^45.3.2",
+    "electron-builder": "^26.18.0"
+  }
+}

@@ -1,0 +1,52 @@
+appId: com.pzibang.embeddinggemma2
+productName: EmbeddingGemma2
+copyright: Copyright © 2026 pzibang
+
+directories:
+  output: ../release/desktop
+  buildResources: build
+
+files:
+  - src/**/*
+  - package.json
+  - '!**/*.map'
+
+asarUnpack:
+  - node_modules/pdf-parse/**/*
+
+# 随包携带：推理运行时 + 前端构建产物 + 模型
+# 想减小安装包：删掉 models 这一段，首次启动会让用户下载到 userData
+extraResources:
+  - from: resources/runtime
+    to: runtime
+  - from: ../release/web
+    to: web
+  - from: resources/models
+    to: models
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ${productName}-${version}-win-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: EmbeddingGemma 2
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+
+linux:
+  category: Utility
+  target:
+    - target: AppImage
+      arch: [x64]
+  artifactName: ${productName}-${version}-linux-${arch}.${ext}

@@ -1,14 +1,59 @@
 # EmbeddingGemma 2 · 本地语义检索
 
-llama.cpp 出向量，FastAPI 建索引与检索，React 提供可用界面。全本地、单端口、开箱即用。
+llama.cpp 出向量，React 提供界面。两种形态共用同一套前端与检索逻辑：
+
+- **桌面应用**（推荐）：Electron 壳，双击即用，自带运行时与模型，不依赖 Python/Node 环境
+- **服务器模式**：FastAPI 后端 + 浏览器访问，适合局域网共享
 
 界面是左右两栏：左侧上传区与文档库（块数 / 体积 / 删除），右侧检索面板——三种任务模式、返回条数、MRL 维度切换，结果卡带 cosine 分数条、文件名、块序号、命中高亮，可展开全文、复制、「只看该文档」。
+
+## 桌面应用（跨平台）
+
+```
+desktop/
+├── package.json          Electron 45 + electron-builder
+├── electron-builder.yml   win(nsis) / mac(dmg) / linux(AppImage)
+├── src/main/             主进程
+│   ├── main.js             生命周期、窗口、菜单、单实例
+│   ├── llama.js            拉起 llama-server（自动挑端口、等就绪、退出清理）
+│   ├── api.js              本地 HTTP：/api/* + 托管前端
+│   ├── store.js            index.json + chunks.jsonl + vectors.f32
+│   ├── chunk.js            切块（与 Python 版同规则）
+│   ├── download.js         首次启动下载 GGUF（进度）
+│   └── paths.js            数据/资源目录解析
+├── src/setup/setup.html  首次启动向导（缺模型时）
+├── src/preload/preload.js  contextBridge API
+├── scripts/fetch-runtime.mjs   按平台取 llama.cpp（+ --with-model）
+├── scripts/selfcheck.js        无界面端到端自检
+└── resources/             runtime/ 与 models/（gitignore，构建前拉取）
+```
+
+```bash
+cd desktop
+npm install                 # 首次
+npm run fetch-runtime       # 取当前平台的 llama.cpp；加 --with-model 顺带下 GGUF
+npm run selfcheck           # 不起窗口，验证 推理 + 上传 + 检索
+npm start                   # 开发运行（需正常桌面会话）
+npm run dist:win            # 打包；另有 dist:mac / dist:linux
+```
+
+打包前需先 `build\build.ps1` 产出 `release\web`；安装包输出到 `release\desktop\`。
+默认把 `resources/models` 一起打进包（安装包约 300 MB）；想瘦身就删掉 `electron-builder.yml` 里 `models` 那段，首次启动会引导用户下载。
+
+## 服务器模式
+
+```cmd
+build\build.ps1          :: 构建前端到 release\web（首次会 npm install）
+deploy\start-ui.cmd      :: 起模型 + 后端，打开 http://127.0.0.1:8000
+deploy\stop-ui.cmd       :: 全部停止
+```
 
 ## 工程结构
 
 ```
 embeddinggemma2-search/
-├── backend/            后端源码（FastAPI）
+├── desktop/            Electron 桌面壳 + Node 后端（见上）
+├── backend/            服务器模式后端（FastAPI）
 │   ├── app/
 │   │   ├── config.py       路径、模型参数、prompt 前缀
 │   │   ├── db.py           SQLite schema / 连接 / 变更令牌
@@ -29,10 +74,11 @@ embeddinggemma2-search/
 │   ├── cache/              下载/安装缓存（gitignore）
 │   └── out/                打包产物（gitignore）
 ├── release/            可运行产物
-│   ├── web/                前端构建结果（后端直接托管）
+│   ├── web/                前端构建结果（两种模式共用）
+│   ├── desktop/            桌面安装包（gitignore）
 │   ├── models/             GGUF（310 MB，gitignore）
 │   └── runtime/            llama.cpp Windows 预编译（gitignore）
-├── deploy/             部署与运维
+├── deploy/             服务器模式运维
 │   ├── start-ui.cmd        一键起模型 + 后端 + 打开浏览器
 │   ├── stop-ui.cmd         一键全停
 │   ├── start.cmd           只起模型（前台）
@@ -41,11 +87,12 @@ embeddinggemma2-search/
 │   ├── serve-api.cmd       只跑后端
 │   ├── download.cmd        拉取 llama.cpp 与 GGUF
 │   └── health.py / fetch.py / smoke_test.py / ingest_samples.py
-├── data/               SQLite（向量 + 元数据，gitignore）
-├── docs/               截图与补充文档
+├── data/               运行数据（gitignore）
+├── docs/               补充文档与截图
 ├── samples/            示例语料（中文 FAQ / 设计笔记 / 代码）
 └── logs/               运行日志（gitignore）
 ```
+
 
 ## 快速开始
 
