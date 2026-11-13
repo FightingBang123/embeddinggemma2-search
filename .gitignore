@@ -1,0 +1,31 @@
+# runtime data
+data/*.db
+data/*.db-shm
+data/*.db-wal
+logs/
+.run/
+shots/
+
+# downloaded / built artifacts
+release/models/
+release/runtime/
+release/web/
+build/cache/
+build/out/
+dist/
+
+# dependencies
+backend/lib/
+frontend/node_modules/
+.pnpm-store/
+
+# python bytecode
+__pycache__/
+*.py[cod]
+
+# editor / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.log
