@@ -9,6 +9,7 @@
   "scripts": {
     "start": "electron .",
     "selfcheck": "node scripts/selfcheck.js",
+    "check:startup": "node scripts/check-startup.js",
     "fetch-runtime": "node scripts/fetch-runtime.mjs",
     "icon": "python ../build/make-icon.py",
     "dist": "electron-builder",

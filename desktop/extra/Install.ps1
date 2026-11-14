@@ -1,7 +1,10 @@
 # EmbeddingGemma 2 - install to an ASCII-only path and launch.
 # Called by Install.cmd. ASCII-only output on purpose (cmd codepage).
-# Note: double-clicking EmbeddingGemma2.exe works too - that exe is a launcher
-# which performs the same relocation when needed.
+# Note: double-clicking EmbeddingGemma2.exe (or EmbeddingGemma2App.exe) works too -
+# both are the same small launcher, which relocates on its own when needed.
+#
+# 说明：本脚本把整包复制到 %LOCALAPPDATA%\Programs\EmbeddingGemma2 再启动。
+# 这条路走 PowerShell + cmd，不依赖 exe 所在目录的权限，因此在受限目录里最稳。
 
 $ErrorActionPreference = 'Stop'
 $src = $PSScriptRoot
@@ -16,9 +19,9 @@ Get-ChildItem -LiteralPath $src -Force | ForEach-Object {
 }
 
 $launcher = Join-Path $dest 'EmbeddingGemma2.exe'
-$appExe = Join-Path $dest 'EmbeddingGemma2App.exe'
-if (-not (Test-Path $launcher) -or -not (Test-Path $appExe)) {
-    throw "copy failed: expected EmbeddingGemma2.exe and EmbeddingGemma2App.exe in $dest"
+$core = Join-Path $dest 'EmbeddingGemma2Core.exe'
+if (-not (Test-Path $launcher) -or -not (Test-Path $core)) {
+    throw "copy failed: expected EmbeddingGemma2.exe and EmbeddingGemma2Core.exe in $dest"
 }
 
 Write-Host '[2/4] model check'

@@ -44,15 +44,25 @@ function resolveBinary(runtimeDir) {
 }
 
 class LlamaServer {
-  constructor({ runtimeDir, modelFile, logsDir, ctx = 2048 }) {
+  constructor({ runtimeDir, modelFile, logsDir, ctx = 2048, onEvent = null }) {
     this.runtimeDir = runtimeDir;
     this.modelFile = modelFile;
     this.logsDir = logsDir;
     this.ctx = ctx;
+    this.onEvent = typeof onEvent === 'function' ? onEvent : null;
     this.proc = null;
     this.port = null;
     this.baseUrl = null;
     this.logStream = null;
+  }
+
+  emit(event, payload) {
+    if (!this.onEvent) return;
+    try {
+      this.onEvent(event, payload);
+    } catch {
+      /* 进度回调不能影响启动 */
+    }
   }
 
   get available() {
@@ -98,7 +108,9 @@ class LlamaServer {
       this.proc = null;
     });
 
+    this.emit('spawn', this.baseUrl);
     await this.waitReady(60000);
+    this.emit('ready', this.baseUrl);
     console.log('[llama] ready at', this.baseUrl);
     return this.baseUrl;
   }

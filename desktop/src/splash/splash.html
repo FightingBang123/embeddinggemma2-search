@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>正在启动 EmbeddingGemma 2</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #09090b;
+        --fg: #e4e4e7;
+        --muted: #a1a1aa;
+        --dim: #52525b;
+        --line: #27272a;
+        --accent: #6366f1;
+        --accent-2: #818cf8;
+        --ok: #34d399;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background:
+          radial-gradient(120% 90% at 50% -10%, rgba(99, 102, 241, 0.16), transparent 62%),
+          var(--bg);
+        color: var(--fg);
+        font: 13px/1.6 "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+        user-select: none;
+        overflow: hidden;
+      }
+      .wrap {
+        height: 100%;
+        padding: 26px 30px 22px;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+      }
+
+      /* ---------- 头部 ---------- */
+      header { display: flex; align-items: center; gap: 14px; }
+      .mark {
+        position: relative;
+        width: 42px; height: 42px;
+        flex: 0 0 42px;
+        display: grid; place-items: center;
+      }
+      .mark .ring {
+        position: absolute; inset: 0;
+        border-radius: 50%;
+        border: 2px solid rgba(99, 102, 241, 0.22);
+        border-top-color: var(--accent-2);
+        border-right-color: var(--accent);
+        animation: spin 1.15s linear infinite;
+      }
+      .mark .dot {
+        width: 14px; height: 14px; border-radius: 50%;
+        background: radial-gradient(circle at 34% 30%, #c7d2fe, var(--accent) 62%, #3730a3);
+        box-shadow: 0 0 16px rgba(99, 102, 241, 0.75);
+        animation: breathe 1.9s ease-in-out infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes breathe {
+        0%, 100% { transform: scale(0.86); opacity: 0.78; }
+        50%      { transform: scale(1.06); opacity: 1; }
+      }
+      h1 { margin: 0; font-size: 15.5px; font-weight: 650; letter-spacing: 0.2px; }
+      .sub { margin: 1px 0 0; font-size: 11.8px; color: var(--muted); }
+
+      /* ---------- 步骤 ---------- */
+      ol.steps {
+        list-style: none;
+        margin: 24px 0 0;
+        padding: 0;
+        display: grid;
+        gap: 9px;
+      }
+      .step {
+        display: flex; align-items: center; gap: 10px;
+        font-size: 12.4px; color: var(--dim);
+        transition: color 0.25s ease;
+      }
+      .tick {
+        position: relative;
+        width: 15px; height: 15px; flex: 0 0 15px;
+        border-radius: 50%;
+        border: 1.5px solid #3f3f46;
+        display: grid; place-items: center;
+        transition: border-color 0.25s ease, background 0.25s ease;
+      }
+      .tick::after {
+        content: "";
+        width: 5px; height: 5px; border-radius: 50%;
+        background: transparent;
+        transition: background 0.25s ease;
+      }
+      .step[data-state="active"] { color: var(--fg); }
+      .step[data-state="active"] .tick {
+        border-color: var(--accent-2);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.14);
+        animation: tickPulse 1.5s ease-in-out infinite;
+      }
+      .step[data-state="active"] .tick::after { background: var(--accent-2); }
+      .step[data-state="done"] { color: #71717a; }
+      .step[data-state="done"] .tick {
+        border-color: rgba(52, 211, 153, 0.65);
+        background: rgba(52, 211, 153, 0.14);
+      }
+      .step[data-state="done"] .tick::after { background: var(--ok); }
+      @keyframes tickPulse {
+        0%, 100% { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.10); }
+        50%      { box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.20); }
+      }
+
+      /* ---------- 进度条 ---------- */
+      .spacer { flex: 1 1 auto; min-height: 14px; }
+      .bar {
+        position: relative;
+        height: 4px; border-radius: 99px;
+        background: #18181b;
+        border: 1px solid var(--line);
+        overflow: hidden;
+      }
+      .bar > i {
+        position: absolute; top: 0; bottom: 0; left: 0;
+        width: 42%;
+        border-radius: 99px;
+        background: linear-gradient(90deg, transparent, var(--accent), var(--accent-2), transparent);
+        animation: slide 1.35s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+      }
+      @keyframes slide {
+        0%   { left: -45%; }
+        100% { left: 103%; }
+      }
+      .status {
+        margin: 10px 0 0;
+        display: flex; align-items: baseline; gap: 8px;
+        font-size: 12.2px; color: var(--muted);
+        min-height: 18px;
+      }
+      .status .dots { display: inline-flex; gap: 3px; }
+      .status .dots i {
+        width: 3px; height: 3px; border-radius: 50%;
+        background: var(--accent-2);
+        animation: blink 1.25s ease-in-out infinite;
+      }
+      .status .dots i:nth-child(2) { animation-delay: 0.16s; }
+      .status .dots i:nth-child(3) { animation-delay: 0.32s; }
+      @keyframes blink {
+        0%, 80%, 100% { opacity: 0.22; transform: translateY(0); }
+        40%           { opacity: 1;    transform: translateY(-2px); }
+      }
+      .hint {
+        margin: 6px 0 0;
+        font-size: 11.2px; color: #52525b;
+        opacity: 0;
+        transition: opacity 0.6s ease;
+      }
+      .hint.show { opacity: 1; }
+      .notice {
+        margin: 8px 0 0;
+        font-size: 10.8px; color: #71717a;
+        word-break: break-all;
+        display: none;
+      }
+      .notice.show { display: block; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="mark">
+          <span class="ring"></span>
+          <span class="dot"></span>
+        </div>
+        <div>
+          <h1>EmbeddingGemma 2</h1>
+          <p class="sub">本地语义检索 · 正在启动</p>
+        </div>
+      </header>
+
+      <ol class="steps" id="steps">
+        <li class="step" data-stage="boot" data-state="active"><span class="tick"></span><span>启动内核</span></li>
+        <li class="step" data-stage="model"><span class="tick"></span><span>加载推理模型</span></li>
+        <li class="step" data-stage="index"><span class="tick"></span><span>载入本地索引</span></li>
+        <li class="step" data-stage="ui"><span class="tick"></span><span>打开界面</span></li>
+      </ol>
+
+      <div class="spacer"></div>
+
+      <div class="bar"><i></i></div>
+      <p class="status">
+        <span id="status-text">正在初始化…</span>
+        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      </p>
+      <p class="hint" id="hint">首次启动要加载模型，可能需要 10–30 秒；之后就快很多了。</p>
+      <p class="notice" id="notice"></p>
+    </div>
+
+    <script>
+      const ORDER = ['boot', 'model', 'index', 'ui'];
+      const steps = Array.from(document.querySelectorAll('.step'));
+      const statusText = document.getElementById('status-text');
+      const hint = document.getElementById('hint');
+      const notice = document.getElementById('notice');
+
+      // 3 秒还没好，再把"首次启动会慢"的提示淡入，避免一上来就让人觉得慢
+      setTimeout(() => hint.classList.add('show'), 3000);
+
+      function paint(stage) {
+        const at = ORDER.indexOf(stage);
+        if (at < 0) return;
+        steps.forEach((el, i) => {
+          if (i < at) el.dataset.state = 'done';
+          else if (i === at) el.dataset.state = 'active';
+          else el.removeAttribute('data-state');
+        });
+      }
+
+      if (window.desktop && window.desktop.splash) {
+        window.desktop.splash.onStatus((payload) => {
+          const stage = payload && payload.stage;
+          const text = payload && payload.text;
+          if (stage) paint(stage);
+          if (text) statusText.textContent = text;
+        });
+
+        window.desktop.splash.onNotice((payload) => {
+          if (!payload) return;
+          if (payload.dataDir && payload.fallback) {
+            notice.textContent = `数据目录已切换到：${payload.dataDir}`;
+            notice.classList.add('show');
+          }
+        });
+      }
+
+      // 供主进程主动查询当前状态（splash 可能比第一个事件后加载完）
+      window.__eg2SplashReady = true;
+    </script>
+  </body>
+</html>

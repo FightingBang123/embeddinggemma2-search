@@ -1,69 +1,92 @@
-// EmbeddingGemma 2 launcher.
+// EmbeddingGemma 2 启动器（用户双击的就是这个 exe）。
 //
-// Why this exists: Chromium/Electron exits silently when its executable path or
-// working directory contains non-ASCII characters. Users routinely extract the
-// zip into a Chinese-named folder and double-click the exe, see nothing happen.
+// 它存在的原因：Electron/Chromium 有一类"静默失败"——进程起来了，但拿不到
+// 进程单例锁 / 初始化不了沙箱 / 写不了数据目录时，不弹窗、不写日志、退出码 0。
+// 用户看到的就是"双击了没反应"。这个启动器是纯 .NET，能从任何目录启动，因此可以：
+//   1. 发现主程序秒退时，换一种方式再试（受限目录下加 --no-sandbox）；
+//   2. 仍然不行就把整个目录复制到一个普通目录再启动（带进度窗）；
+//   3. 全都不行时弹窗说明原因，并指出日志在哪，而不是留一片安静。
 //
-// This small native launcher is the file users double-click. It:
-//   1. runs from ANY path (it is plain .NET, not Chromium),
-//   2. if the current folder is ASCII -> starts EmbeddingGemma2App.exe right here,
-//   3. otherwise copies the app to %LOCALAPPDATA%\Programs\EmbeddingGemma2 (ASCII)
-//      once, then starts it from there.
+// 主程序叫 EmbeddingGemma2Core.exe；本文件编译成 EmbeddingGemma2.exe，
+// 并额外复制一份 EmbeddingGemma2App.exe，用户点哪个名字都走得进这条路。
 //
-// Build: see build/build-launcher.ps1 (csc /target:winexe /r:System.Windows.Forms.dll)
+// Build: build/build-launcher.ps1（csc /target:winexe /r:System.Windows.Forms.dll）
 
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Windows.Forms;
 
 internal static class Launcher
 {
-    private const string AppExe = "EmbeddingGemma2App.exe";
+    private const string CoreExe = "EmbeddingGemma2Core.exe";
     private const string ProductName = "EmbeddingGemma 2";
+
+    // 主程序正常时一秒内就会显示启动动画；这里只等"退出或出窗口"。
+    private const int ProbeMs = 4000;
+
+    private static string _here = "";
 
     private static int Main(string[] args)
     {
         try
         {
-            string here = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            string local = Path.Combine(here, AppExe);
-            Log("start here=" + here + " ascii=" + IsAscii(here) + " appInPlace=" + File.Exists(local));
+            _here = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            string core = Path.Combine(_here, CoreExe);
+            Log("start here=" + _here + " coreExists=" + File.Exists(core));
 
-            if (IsAscii(here) && File.Exists(local))
+            if (!File.Exists(core))
             {
-                return Start(here, local, args);
+                Fail("启动器找不到主程序 " + CoreExe + "。\r\n\r\n" +
+                     "压缩包可能没有完整解压，或者主程序被杀毒软件移走了。\r\n\r\n" +
+                     "当前目录：" + _here);
+                return 1;
             }
 
-            // Non-ASCII path: Chromium cannot start from it. Install a copy to an
-            // ASCII location (once) and start it there. Copy is the same flow the
-            // verified Install.ps1 uses, so behaviour is predictable.
-            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string[] targets = new string[]
+            // 已有实例在跑：再起一次只会触发"聚焦已有窗口"，不要误判成失败。
+            if (IsCoreRunning())
             {
-                Path.Combine(localAppData, @"Programs\EmbeddingGemma2"),
-                Path.Combine(Path.GetTempPath(), "EmbeddingGemma2"),
-            };
+                Log("core already running -> hand off");
+                Spawn(_here, core, args, null);
+                return 0;
+            }
 
+            int exitCode;
+            if (TryLaunch(_here, core, args, null, out exitCode)) return 0;
+            Log("in-place launch ended early, exit=" + exitCode);
+
+            // 上一次的崩溃处理子进程可能还没退干净；等它退出再重试，
+            // 否则新实例会被单实例锁挡住，看起来又是"启动失败"。
+            WaitForCoreGone(2500);
+
+            // 受限目录（只读 / 低完整性 / 沙箱）里 Chromium 的沙箱初始化不了，
+            // 会立刻退出。只在"已经失败过一次"之后才放宽沙箱重试，正常启动不会走这里。
+            if (TryLaunch(_here, core, args, "--no-sandbox", out exitCode)) return 0;
+            Log("in-place retry (--no-sandbox) ended early, exit=" + exitCode);
+            WaitForCoreGone(2500);
+
+            // 还是不行：把整包复制到一个普通目录再跑（首次 10–30 秒，带进度窗）。
             string lastError = null;
-            foreach (string target in targets)
+            foreach (string target in RelocationTargets())
             {
                 try
                 {
                     if (!IsAscii(target)) continue;
-                    string targetExe = Path.Combine(target, AppExe);
-                    if (!File.Exists(targetExe) || IsSourceNewer(here, target))
+                    string targetCore = Path.Combine(target, CoreExe);
+                    if (!File.Exists(targetCore) || IsSourceNewer(_here, target))
                     {
                         Log("copy -> " + target);
-                        CopyWithProgress(here, target);
+                        CopyWithProgress(_here, target);
                     }
-                    if (File.Exists(targetExe))
+                    if (File.Exists(targetCore) && TryLaunch(target, targetCore, args, null, out exitCode))
                     {
-                        Log("launch " + targetExe);
-                        return Start(target, targetExe, args);
+                        Log("launched from " + target);
+                        return 0;
                     }
+                    Log("relocated launch failed in " + target);
                 }
                 catch (Exception ex)
                 {
@@ -72,69 +95,184 @@ internal static class Launcher
                 }
             }
 
-            Dialog(
-                "当前目录包含非 ASCII 字符（如中文），Chromium 无法从这个路径启动，\r\n" +
-                "自动安装到英文目录也失败了。\r\n\r\n" +
-                (lastError == null ? "" : "错误：" + lastError + "\r\n\r\n") +
-                "可以改用压缩包里的 Install.cmd，或把整个目录移到\r\n" +
-                "D:\\Apps\\EmbeddingGemma2 这类纯英文路径后重试。\r\n\r\n" +
-                "当前目录：" + here,
-                MessageBoxIcon.Error);
+            Fail("程序从这个目录启动不了，换目录复制也没成功。\r\n\r\n" +
+                 "常见原因：\r\n" +
+                 "  · 目录被安全策略 / 沙箱限制（低完整性标签、AppLocker、受控文件夹）；\r\n" +
+                 "  · 目录只读，或所在磁盘被安全软件拦截；\r\n" +
+                 "  · 压缩包没有解压完整，缺 DLL。\r\n\r\n" +
+                 "可以试试：\r\n" +
+                 "  1. 把整个文件夹移到 D:\\Apps\\EmbeddingGemma2 这类普通目录后重试；\r\n" +
+                 "  2. 双击同一目录里的 Install.cmd（用 PowerShell 安装并建快捷方式）；\r\n" +
+                 "  3. 打开日志看具体停在哪一步。\r\n\r\n" +
+                 (lastError == null ? "" : "最近一次错误：" + lastError + "\r\n\r\n") +
+                 "启动器日志：" + LauncherLogPath() + "\r\n" +
+                 "主程序日志：" + StartupLogPath() + "\r\n\r\n" +
+                 "当前目录：" + _here);
             return 1;
         }
         catch (Exception ex)
         {
-            Dialog("启动失败：\r\n\r\n" + ex.Message, MessageBoxIcon.Error);
+            Log("fatal: " + ex);
+            Fail("启动失败：\r\n\r\n" + ex.Message + "\r\n\r\n日志：" + LauncherLogPath());
             return 1;
         }
     }
 
-    private static int Start(string workDir, string exe, string[] args)
+    /// <summary>
+    /// 启动主程序并观察它是不是"秒退"。
+    /// true = 主程序还活着（或已经出窗口），启动器可以退场。
+    /// </summary>
+    private static bool TryLaunch(string workDir, string exe, string[] args, string extraSwitches, out int exitCode)
+    {
+        exitCode = 0;
+        Process proc;
+        try
+        {
+            proc = Spawn(workDir, exe, args, extraSwitches);
+        }
+        catch (Exception ex)
+        {
+            Log("spawn failed " + exe + ": " + ex.Message);
+            exitCode = -1;
+            return false;
+        }
+        if (proc == null)
+        {
+            exitCode = -1;
+            return false;
+        }
+
+        int waited = 0;
+        while (waited < ProbeMs)
+        {
+            if (proc.HasExited)
+            {
+                exitCode = SafeExitCode(proc);
+                return false;
+            }
+            try
+            {
+                proc.Refresh();
+                if (proc.MainWindowHandle != IntPtr.Zero) return true;
+            }
+            catch
+            {
+                /* 进程刚好退出 */
+            }
+            Thread.Sleep(120);
+            waited += 120;
+        }
+
+        // 没退出也没窗口：多半只是慢（杀毒软件在扫 250 MB 的 exe），交给主程序继续。
+        Log("still starting after " + ProbeMs + "ms - assuming success");
+        return true;
+    }
+
+    private static Process Spawn(string workDir, string exe, string[] args, string extraSwitches)
     {
         var psi = new ProcessStartInfo(exe)
         {
             WorkingDirectory = workDir,
             UseShellExecute = false,
         };
-        if (args != null && args.Length > 0)
-        {
-            psi.Arguments = JoinArgs(args);
-        }
-        // Some dev setups export this globally; Electron then runs as plain Node and quits.
-        try { psi.EnvironmentVariables.Remove("ELECTRON_RUN_AS_NODE"); }
-        catch { /* older framework: ignore */ }
 
-        Process.Start(psi);
-        Log("started " + exe);
-        return 0;
+        var sb = new StringBuilder();
+        if (args != null && args.Length > 0) sb.Append(JoinArgs(args));
+        if (!string.IsNullOrEmpty(extraSwitches))
+        {
+            if (sb.Length > 0) sb.Append(' ');
+            sb.Append(extraSwitches);
+        }
+        if (sb.Length > 0) psi.Arguments = sb.ToString();
+
+        // 某些开发 / 自动化环境会全局设置 ELECTRON_RUN_AS_NODE=1，Electron 会退化成 Node 立即退出。
+        try { psi.EnvironmentVariables.Remove("ELECTRON_RUN_AS_NODE"); }
+        catch { /* 老版本 framework 没有这个属性 */ }
+
+        return Process.Start(psi);
     }
 
-    // Launcher-side diagnostics: users get no console, so leave a trail.
-    // Temp first (normal case); if that is blocked, fall back next to the exe.
+    private static bool IsCoreRunning()
+    {
+        try
+        {
+            return Process.GetProcessesByName(Path.GetFileNameWithoutExtension(CoreExe)).Length > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // 上一次尝试失败后，等它的子进程彻底退出，避免被单实例锁挡住。
+    private static void WaitForCoreGone(int timeoutMs)
+    {
+        int waited = 0;
+        while (waited < timeoutMs)
+        {
+            if (!IsCoreRunning()) return;
+            Thread.Sleep(150);
+            waited += 150;
+        }
+        Log("core processes still present after " + timeoutMs + "ms");
+    }
+
+    private static int SafeExitCode(Process proc)
+    {
+        try { return proc.ExitCode; }
+        catch { return 0; }
+    }
+
+    private static string[] RelocationTargets()
+    {
+        string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return new string[]
+        {
+            Path.Combine(localAppData, @"Programs\EmbeddingGemma2"),
+            Path.Combine(Path.GetTempPath(), "EmbeddingGemma2"),
+        };
+    }
+
+    // ---------------------------------------------------------------- 日志
+    private static string LauncherLogPath()
+    {
+        try { return Path.Combine(Path.GetTempPath(), "embeddinggemma2-launcher.log"); }
+        catch { return Path.Combine(_here, "launcher.log"); }
+    }
+
+    private static string StartupLogPath()
+    {
+        try { return Path.Combine(Path.GetTempPath(), "embeddinggemma2-startup.log"); }
+        catch { return "%TEMP%\\embeddinggemma2-startup.log"; }
+    }
+
     private static void Log(string message)
     {
         string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " " + message + "\r\n";
-        try
+        string[] candidates = new string[]
         {
-            string here = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            string[] candidates = new string[]
+            SaferTemp("embeddinggemma2-launcher.log"),
+            Path.Combine(_here, "launcher.log"),
+        };
+        foreach (string file in candidates)
+        {
+            if (file == null) continue;
+            try
             {
-                Path.Combine(Path.GetTempPath(), "embeddinggemma2-launcher.log"),
-                Path.Combine(here, "launcher.log"),
-            };
-            foreach (string file in candidates)
-            {
-                try
-                {
-                    File.AppendAllText(file, line);
-                    return;
-                }
-                catch { /* try next location */ }
+                File.AppendAllText(file, line);
+                return;
             }
+            catch { /* 试下一个位置 */ }
         }
-        catch { /* never fail because of logging */ }
     }
 
+    private static string SaferTemp(string name)
+    {
+        try { return Path.Combine(Path.GetTempPath(), name); }
+        catch { return null; }
+    }
+
+    // ---------------------------------------------------------------- 工具
     private static string JoinArgs(string[] args)
     {
         var sb = new StringBuilder();
@@ -155,11 +293,11 @@ internal static class Launcher
         return true;
     }
 
-    // Re-copy when the launcher package is newer than what is installed.
+    // 启动器目录里的主程序比目标新时，重新复制。
     private static bool IsSourceNewer(string sourceDir, string targetDir)
     {
-        string src = Path.Combine(sourceDir, AppExe);
-        string dst = Path.Combine(targetDir, AppExe);
+        string src = Path.Combine(sourceDir, CoreExe);
+        string dst = Path.Combine(targetDir, CoreExe);
         try
         {
             return File.GetLastWriteTimeUtc(src) > File.GetLastWriteTimeUtc(dst);
@@ -191,18 +329,24 @@ internal static class Launcher
             string dest = Path.Combine(target, Rel(source, file));
             string parent = Path.GetDirectoryName(dest);
             if (!Directory.Exists(parent)) Directory.CreateDirectory(parent);
-            if (File.Exists(dest) && new FileInfo(dest).Length == new FileInfo(file).Length
-                && File.GetLastWriteTimeUtc(dest) >= File.GetLastWriteTimeUtc(file))
+
+            FileInfo srcInfo = new FileInfo(file);
+            if (File.Exists(dest))
             {
-                skipped++;
-                continue; // already up to date
+                FileInfo dstInfo = new FileInfo(dest);
+                if (dstInfo.Length == srcInfo.Length
+                    && File.GetLastWriteTimeUtc(dest) >= File.GetLastWriteTimeUtc(file))
+                {
+                    skipped++;
+                    continue; // 已经是最新的
+                }
             }
             try
             {
                 File.Copy(file, dest, true);
                 copied++;
             }
-            catch (IOException) { /* in use: keep existing */ }
+            catch (IOException) { /* 文件被占用：保留现有版本 */ }
         }
 
         Log("copyTree copied=" + copied + " skipped=" + skipped + " -> " + target);
@@ -214,14 +358,6 @@ internal static class Launcher
         return full.Substring(Path.GetFullPath(root).Length).TrimStart('\\');
     }
 
-    private static bool SamePath(string a, string b)
-    {
-        return string.Equals(
-            Path.GetFullPath(a).TrimEnd('\\'),
-            Path.GetFullPath(b).TrimEnd('\\'),
-            StringComparison.OrdinalIgnoreCase);
-    }
-
     private static bool IsUnder(string path, string dir)
     {
         string full = Path.GetFullPath(path).TrimEnd('\\');
@@ -230,23 +366,22 @@ internal static class Launcher
             || full.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void Dialog(string text, MessageBoxIcon icon)
+    private static void Fail(string text)
     {
-        MessageBox.Show(text, ProductName, MessageBoxButtons.OK, icon);
+        try { MessageBox.Show(text, ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        catch { /* 连弹窗都不行就只剩日志了 */ }
     }
 
-    // Copy while showing a borderless "installing" window, so the user gets
-    // feedback and the launcher never needs a click to proceed.
+    // 复制时用无边框进度窗：用户能看到进度，也不需要点任何按钮。
     private static void CopyWithProgress(string sourceDir, string targetDir)
     {
         Exception failure = null;
         using (var form = new InstallForm(targetDir))
         {
-            // Start the worker only after the form has a handle, otherwise the
-            // cross-thread Close() can be lost and the form would stay forever.
+            // 等窗体有句柄再起线程，否则跨线程 Close() 可能丢失、窗体永远关不掉
             form.Shown += delegate
             {
-                var worker = new System.Threading.Thread(delegate()
+                var worker = new Thread(delegate()
                 {
                     try
                     {
@@ -257,7 +392,7 @@ internal static class Launcher
                         failure = ex;
                     }
                     try { form.BeginInvoke(new Action(form.Close)); }
-                    catch { /* form already gone */ }
+                    catch { /* 窗体已经关了 */ }
                 });
                 worker.IsBackground = true;
                 worker.Start();
@@ -268,8 +403,8 @@ internal static class Launcher
 
         if (failure != null)
         {
-            Dialog("安装到本机目录失败：\r\n\r\n" + failure.Message +
-                   "\r\n\r\n可以改用压缩包里的 Install.cmd。", MessageBoxIcon.Error);
+            Log("copy failed: " + failure.Message);
+            throw failure;
         }
     }
 
@@ -283,27 +418,35 @@ internal static class Launcher
             MaximizeBox = false;
             MinimizeBox = false;
             ControlBox = false;
-            Width = 460;
-            Height = 150;
+            Width = 484;
+            Height = 162;
             TopMost = true;
 
             var title = new Label
             {
-                Text = "首次启动，正在准备运行环境…",
+                Text = "首次启动，正在把程序准备到本机目录…",
                 Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold),
                 AutoSize = true,
                 Left = 24,
-                Top = 22,
+                Top = 20,
             };
             var path = new Label
             {
                 Text = targetDir,
                 AutoSize = false,
-                Width = 400,
+                Width = 424,
                 Height = 18,
                 Left = 24,
-                Top = 52,
+                Top = 50,
                 AutoEllipsis = true,
+                ForeColor = System.Drawing.Color.DimGray,
+            };
+            var hint = new Label
+            {
+                Text = "只需要一次，之后启动会跳过这一步。",
+                AutoSize = true,
+                Left = 24,
+                Top = 70,
                 ForeColor = System.Drawing.Color.DimGray,
             };
             var bar = new ProgressBar
@@ -311,12 +454,13 @@ internal static class Launcher
                 Style = ProgressBarStyle.Marquee,
                 MarqueeAnimationSpeed = 30,
                 Left = 24,
-                Top = 78,
-                Width = 400,
-                Height = 18,
+                Top = 98,
+                Width = 424,
+                Height = 16,
             };
             Controls.Add(title);
             Controls.Add(path);
+            Controls.Add(hint);
             Controls.Add(bar);
         }
     }

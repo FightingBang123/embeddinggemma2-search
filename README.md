@@ -18,15 +18,18 @@ desktop/
 ├── electron-builder.yml   默认包（内置模型）：win/mac/linux 打包配置
 ├── electron-builder.slim.yml     轻量包（不含模型，首次启动下载）
 ├── build/                  icon.ico / icon.png / entitlements.mac.plist
-├── launcher/Launcher.cs    用户双击的启动器（自动处理中文路径）
+├── launcher/Launcher.cs    用户双击的启动器（秒退时重试 / 换目录 / 弹窗指路）
 ├── src/main/             主进程
-│   ├── main.js             生命周期、窗口、菜单、单实例
+│   ├── main.js             生命周期、窗口、菜单、单实例、启动动画
+│   ├── userdata.js         选一个真的能写的 userData（否则 Chromium 静默退出）
+│   ├── startup-log.js      启动日志 → %TEMP%\embeddinggemma2-startup.log
 │   ├── llama.js            拉起 llama-server（自动挑端口、等就绪、退出清理）
 │   ├── api.js              本地 HTTP：/api/* + 托管前端
 │   ├── store-sqlite.js     SQLite 向量库（与服务器端同 schema）
 │   ├── chunk.js            切块（与 Python 版同规则）
 │   ├── download.js         首次启动下载 GGUF（进度）
 │   └── paths.js            数据/资源目录解析
+├── src/splash/splash.html 启动动画（阶段 + 进度条）
 ├── src/setup/setup.html  首次启动向导（缺模型时）
 ├── src/preload/preload.js  contextBridge API
 ├── scripts/fetch-runtime.mjs   按平台取 llama.cpp（+ --with-model）
@@ -52,18 +55,22 @@ npm run dist:win:slim       # 轻量包（不含模型，首次启动下载）
 | `EmbeddingGemma2-<v>-win-x64.zip` | ~467 MB | **含 GGUF**，解压后直接双击 `EmbeddingGemma2.exe`，首次启动无需联网 |
 | `EmbeddingGemma2-<v>-win-slim-x64.zip` | ~198 MB | 不含模型，首次启动向导下载（约 310 MB） |
 
-> ⚠️ 解压到**任何**目录都可以（含中文）。双击 `EmbeddingGemma2.exe`（启动器）即可：
-> 它检测到路径含非 ASCII 字符时，先把程序安装到
-> `%LOCALAPPDATA%\Programs\EmbeddingGemma2`（ASCII 路径，首次约 10–30 秒，带进度窗），
-> 再从那里启动；该目录不可写时退化到 `%TEMP%\EmbeddingGemma2`。
+> 解压到**任何**目录都可以（含中文，已实测）。双击 `EmbeddingGemma2.exe` 或
+> `EmbeddingGemma2App.exe`（同一个启动器）即可，**马上就会弹出启动动画**：
+> 启动内核 → 加载推理模型 → 载入本地索引 → 打开界面。
+>
+> 启动器只在主程序"秒退"时才动手：先用 `--no-sandbox` 重试一次（受限目录），
+> 再不行就把程序装到 `%LOCALAPPDATA%\Programs\EmbeddingGemma2`（首次约 10–30 秒，
+> 带进度窗），该目录不可写时退化到 `%TEMP%\EmbeddingGemma2`；仍然失败会弹窗说明原因。
 > 之后再双击会比对版本、跳过复制，直接秒开。
-> 诊断日志：`%TEMP%\embeddinggemma2-launcher.log`（不可写时落在 exe 同目录的 `launcher.log`）。
+> 诊断日志：`%TEMP%\embeddinggemma2-startup.log`、`%TEMP%\embeddinggemma2-launcher.log`。
 > 细节见 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)。
 
 | 文件 | 作用 |
 |---|---|
-| `EmbeddingGemma2.exe` | **启动器**（10 KB .NET），用户双击这个；解决非 ASCII 路径 |
-| `EmbeddingGemma2App.exe` | 真正的 Electron 主程序；从中文路径直接启动会静默退出 |
+| `EmbeddingGemma2.exe` | **启动器**（13 KB .NET），用户双击这个 |
+| `EmbeddingGemma2App.exe` | 同一个启动器（沿用老版本文件名，点它也一样） |
+| `EmbeddingGemma2Core.exe` | 真正的 Electron 主程序；不要直接双击 |
 
 ```bash
 npx electron-builder --dir       # 只出免安装目录（最快，CI 友好）

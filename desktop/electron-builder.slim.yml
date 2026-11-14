@@ -20,10 +20,14 @@ files:
 asarUnpack:
   - node_modules/pdf-parse/**/*
 
-# 解压目录里附带的启动/安装脚本（Electron 不能从含中文的路径启动）
+# 解压目录里附带的启动/安装脚本。
+# 用户双击的 EmbeddingGemma2.exe / EmbeddingGemma2App.exe 都是同一个启动器，
+# 真正的 Electron 主程序叫 EmbeddingGemma2Core.exe（见 win.executableName）。
 extraFiles:
   - from: extra/EmbeddingGemma2.exe
     to: EmbeddingGemma2.exe
+  - from: extra/EmbeddingGemma2App.exe
+    to: EmbeddingGemma2App.exe
   - from: extra/Install.cmd
     to: Install.cmd
   - from: extra/Install.ps1
@@ -43,8 +47,9 @@ extraResources:
 
 win:
   icon: build/icon.ico
-  # 真正的 Electron 主程序；用户双击的 EmbeddingGemma2.exe 是 launcher（见 extraFiles）
-  executableName: EmbeddingGemma2App
+  # 真正的 Electron 主程序；用户双击的 EmbeddingGemma2.exe / EmbeddingGemma2App.exe
+  # 都是 extraFiles 里的启动器。
+  executableName: EmbeddingGemma2Core
   target:
     - target: nsis
       arch: [x64]

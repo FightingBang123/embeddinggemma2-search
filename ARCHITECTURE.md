@@ -32,7 +32,9 @@
 | 端口 | `freePort(8080)`，失败由系统分配 | 避免和用户已有的 llama.cpp 冲突 |
 | 存储 | SQLite（`node:sqlite`，schema 与服务器端一致） | 无原生编译依赖；两种形态可共用/互换同一个 `app.db` |
 | 首次启动 | 模型随包；缺失时才走向导下载 | 默认包 467 MB，`-slim` 变体才需下载 |
-| 安全 | `contextIsolation` + `sandbox`，不暴露 Node | preload 只放出 4 个方法 |
+| 启动动画 | 主进程一 ready 就弹 splash，按阶段上报进度 | 加载 GGUF 要 5–20 秒，不能只给一块空屏 |
+| 数据目录 | 启动时探测 userData 可写性，退到 `程序目录\userdata` → `%TEMP%` | 该目录不可写时 Chromium 建不了进程单例锁，会静默退出 |
+| 安全 | `contextIsolation` + `sandbox`，不暴露 Node | preload 只放出明确需要的通道 |
 | 单实例 | `requestSingleInstanceLock` | 防止两个进程抢同一份索引 |
 
 目录：
@@ -42,18 +44,30 @@ desktop/
   electron-builder.yml          安装包（不含模型）
   electron-builder.slim.yml     轻量包（不含 GGUF）
   build/                        icon.ico / icon.png / entitlements.mac.plist
-  src/main/main.js      生命周期 / 窗口 / 菜单 / 单实例 / 首次启动分支
+  launcher/Launcher.cs          原生启动器 → EmbeddingGemma2.exe / EmbeddingGemma2App.exe
+  src/main/main.js      生命周期 / 窗口 / 菜单 / 单实例 / 启动动画编排
+  src/main/userdata.js  选一个真的能写的 userData（不可写时 Chromium 会静默退出）
+  src/main/startup-log.js 启动日志 → %TEMP%\embeddinggemma2-startup.log
   src/main/llama.js     子进程：找二进制、挑端口、等 /health、退出清理
   src/main/api.js       node:http：/api/*、multipart 与裸流上传、静态托管
   src/main/store-sqlite.js  SQLite 向量库：事务写入、内存矩阵、余弦 top-k
   src/main/chunk.js     切块（900 字符 / 120 重叠 / 标题上下文）
   src/main/download.js  GGUF 下载（进度回调 → 向导）
   src/main/paths.js     资源/数据目录解析（打包后 resourcesPath + userData）
-  src/preload/preload.js contextBridge：info / openData / openLogs / setup.*
+  src/preload/preload.js contextBridge：info / openData / openLogs / splash / setup.*
+  src/splash/splash.html 启动动画（阶段、进度条、数据目录提示）
   src/setup/setup.html  首次启动向导
   scripts/fetch-runtime.mjs  按平台取 llama.cpp（win-vulkan / ubuntu-vulkan / macos-metal）
   scripts/selfcheck.js       不起窗口的端到端自检
 ```
+
+可执行文件分工（免安装 zip）：
+
+| 文件 | 是什么 | 用户会不会点 |
+|---|---|---|
+| `EmbeddingGemma2.exe` | 13 KB 原生启动器 | 会（推荐） |
+| `EmbeddingGemma2App.exe` | 同一个启动器（沿用老文件名） | 会 |
+| `EmbeddingGemma2Core.exe` | 真正的 Electron 主程序 | 不该点，但点了也能起来 |
 
 ## 统一存储
 
@@ -126,7 +140,10 @@ desktop: npm run dist:win:slim     ──▶ release/desktop-slim/*.zip（~198 M
 - 未接入 electron-updater 自动更新；未签名（SmartScreen 会提示"未知发布者"）。
 - 首次启动下载基于 hf-mirror；目标环境只能直连 Hugging Face 时用 `HF_MIRROR=https://huggingface.co`。
 - Linux/ macOS 包需要在对应平台构建（llama.cpp 运行时按平台下载，交叉编译不适用）。
-- **Electron 不能从含非 ASCII 字符的路径或工作目录启动**，且失败是静默的（不弹窗、不写日志）。
-  分发包因此内置 `Install.cmd/ps1`：复制到 `%LOCALAPPDATA%\Programs\EmbeddingGemma2`（ASCII）、
-  建桌面快捷方式、以正确 cwd 启动；`Run.ps1` 会先检测路径并提示。详见 `docs/TROUBLESHOOTING.md`。
+- **"双击没反应"的真实原因是数据目录不可写，不是中文路径。** Chromium 启动时会先在
+  userData 里建进程单例锁，建不出来就退出，退出码 0、不弹窗、不写日志。已实测同一份产物
+  在 `C:\中文测试\下载\`、`D:\下载\软件\`、`%USERPROFILE%\桌面\我的软件\` 都能正常启动；
+  会触发问题的是 `%APPDATA%` 被锁定、目录只读、以及带低完整性标签的受限目录。
+  现在的处理：`userdata.js` 启动时探测可写性并自动换目录；`startup-log.js` 记录每个阶段；
+  `Launcher.cs` 在主程序秒退时重试 / 复制到普通目录 / 弹窗指向日志。详见 `docs/TROUBLESHOOTING.md`。
 

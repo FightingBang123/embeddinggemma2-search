@@ -1,7 +1,7 @@
 # EmbeddingGemma 2 - start from this folder.
-# The exe here is a launcher: if this folder (or the working directory) contains
-# non-ASCII characters, it copies the app to an ASCII path first and starts it
-# from there, so no special handling is needed here.
+# EmbeddingGemma2.exe is a small launcher: it starts EmbeddingGemma2Core.exe in
+# place, retries once in relaxed mode if the folder is restricted, and only then
+# copies the app to a normal directory. So no special handling is needed here.
 
 $ErrorActionPreference = 'Stop'
 $src = $PSScriptRoot

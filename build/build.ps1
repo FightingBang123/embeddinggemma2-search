@@ -18,7 +18,7 @@ $webOut = Join-Path $root 'release\web'
 $env:npm_config_cache = Join-Path $PSScriptRoot 'cache\npm'
 New-Item -ItemType Directory -Force -Path $env:npm_config_cache | Out-Null
 
-Write-Host "[1/3] frontend dependencies" -ForegroundColor Cyan
+Write-Host "[1/5] frontend dependencies" -ForegroundColor Cyan
 Push-Location $frontend
 try {
     if (-not $SkipInstall) {
@@ -28,7 +28,7 @@ try {
         Write-Host "      skipped"
     }
 
-    Write-Host "[2/3] vite build -> release\web" -ForegroundColor Cyan
+    Write-Host "[2/5] vite build -> release\web" -ForegroundColor Cyan
     npm run build
     if ($LASTEXITCODE -ne 0) { throw "vite build failed" }
 } finally {
@@ -39,12 +39,21 @@ if (-not (Test-Path (Join-Path $webOut 'index.html'))) {
     throw "build output missing: $webOut\index.html"
 }
 
-Write-Host "[3/4] backend import check" -ForegroundColor Cyan
+Write-Host "[3/5] desktop startup checks" -ForegroundColor Cyan
+Push-Location (Join-Path $root 'desktop')
+try {
+    node scripts\check-startup.js
+    if ($LASTEXITCODE -ne 0) { throw "desktop startup checks failed" }
+} finally {
+    Pop-Location
+}
+
+Write-Host "[4/5] backend import check" -ForegroundColor Cyan
 $env:PYTHONPATH = Join-Path $root 'backend\lib'
 python -c "import sys; sys.path.insert(0, r'$root\backend'); import app.main as m; print('ok  routes:', len(m.app.routes))"
 if ($LASTEXITCODE -ne 0) { throw "backend import failed" }
 
-Write-Host "[4/4] desktop launcher" -ForegroundColor Cyan
+Write-Host "[5/5] desktop launcher" -ForegroundColor Cyan
 $launcherScript = Join-Path $PSScriptRoot 'build-launcher.ps1'
 if (Test-Path $launcherScript) {
     & powershell -NoProfile -ExecutionPolicy Bypass -File $launcherScript

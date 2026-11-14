@@ -30,7 +30,9 @@ desktop/resources/runtime/
 desktop/resources/models/
 
 # compiled launcher (built by build/build-launcher.ps1)
+# 同一份启动器编译出两个文件名：EmbeddingGemma2.exe / EmbeddingGemma2App.exe
 desktop/extra/EmbeddingGemma2.exe
+desktop/extra/EmbeddingGemma2App.exe
 
 # python bytecode
 __pycache__/
