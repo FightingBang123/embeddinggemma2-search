@@ -65,9 +65,14 @@ desktop/
 
 | 文件 | 是什么 | 用户会不会点 |
 |---|---|---|
-| `EmbeddingGemma2.exe` | 13 KB 原生启动器 | 会（推荐） |
+| `EmbeddingGemma2.exe` | 原生启动器（约 29 KB，含图标） | 会（推荐） |
 | `EmbeddingGemma2App.exe` | 同一个启动器（沿用老文件名） | 会 |
 | `EmbeddingGemma2Core.exe` | 真正的 Electron 主程序 | 不该点，但点了也能起来 |
+
+三个 exe 都嵌入了同一份产品图标 `desktop/build/icon.ico`（由 `build/make-icon.py` 生成，
+16–256 多尺寸，细节随尺寸递减），所以资源管理器/任务栏/快捷方式里的图标一致。
+启动器是 `csc /win32icon:` 嵌入的；改图标后要重跑
+`build/build-launcher.ps1` 再打包，否则启动器还是旧图标。
 
 ## 统一存储
 

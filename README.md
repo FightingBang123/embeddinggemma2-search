@@ -68,7 +68,7 @@ npm run dist:win:slim       # 轻量包（不含模型，首次启动下载）
 
 | 文件 | 作用 |
 |---|---|
-| `EmbeddingGemma2.exe` | **启动器**（13 KB .NET），用户双击这个 |
+| `EmbeddingGemma2.exe` | **启动器**（约 30 KB .NET，含产品图标），用户双击这个 |
 | `EmbeddingGemma2App.exe` | 同一个启动器（沿用老版本文件名，点它也一样） |
 | `EmbeddingGemma2Core.exe` | 真正的 Electron 主程序；不要直接双击 |
 

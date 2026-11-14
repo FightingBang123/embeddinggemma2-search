@@ -5,11 +5,16 @@
   仍然不行就复制到普通目录再启动，最差也会弹窗说明原因。
   产出两份同名程序：EmbeddingGemma2.exe 和 EmbeddingGemma2App.exe
   （用户习惯点哪个名字都能走进同一条路）。
+  两个 exe 都嵌入产品图标（desktop/build/icon.ico），和 Electron 主程序保持一致：
+  资源管理器/任务栏/快捷方式里不会再出现"空白 exe"图标。
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File build\build-launcher.ps1
+.EXAMPLE
+  powershell -ExecutionPolicy Bypass -File build\build-launcher.ps1 -IconPath D:\my.ico
 #>
 param(
-    [string]$Configuration = 'Release'
+    [string]$Configuration = 'Release',
+    [string]$IconPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,6 +22,12 @@ $root = Split-Path -Parent $PSScriptRoot
 $src = Join-Path $root 'desktop\launcher\Launcher.cs'
 $outDir = Join-Path $root 'desktop\extra'
 $names = @('EmbeddingGemma2.exe', 'EmbeddingGemma2App.exe')
+
+if (-not $IconPath) { $IconPath = Join-Path $root 'desktop\build\icon.ico' }
+if (-not (Test-Path $IconPath)) {
+    throw "icon not found: $IconPath (run 'python build\make-icon.py' first)"
+}
+$IconPath = (Resolve-Path $IconPath).Path
 
 $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path $csc)) {
@@ -37,12 +48,14 @@ $cscArgs = @(
     '/optimize+',
     '/codepage:65001',
     "/out:$out",
+    "/win32icon:$IconPath",
     '/r:System.Windows.Forms.dll',
     '/r:System.Drawing.dll',
     $src
 )
 
 Write-Host "[build] $csc" -ForegroundColor Cyan
+Write-Host "        icon: $IconPath"
 & $csc @cscArgs
 if ($LASTEXITCODE -ne 0) { throw "csc failed with $LASTEXITCODE" }
 

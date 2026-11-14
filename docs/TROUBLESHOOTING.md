@@ -27,7 +27,7 @@
 2. 启动动画立刻出现，按阶段推进：启动内核 → 加载推理模型 → 载入本地索引 → 打开界面。
    不会再出现"等半天什么都没有"。
 3. 启动日志：`%TEMP%\embeddinggemma2-startup.log`（每次启动重写，含每个阶段的耗时）。
-4. `EmbeddingGemma2.exe` 和 `EmbeddingGemma2App.exe` 是**同一个 13 KB 启动器**：
+4. `EmbeddingGemma2.exe` 和 `EmbeddingGemma2App.exe` 是**同一个约 30 KB 的启动器**：
    先原地启动主程序；主程序秒退时用 `--no-sandbox` 再试一次（受限目录里
    Chromium 的沙箱初始化不了）；仍然不行就把整包复制到
    `%LOCALAPPDATA%\Programs\EmbeddingGemma2` 再启动；最差也会弹窗说明原因，

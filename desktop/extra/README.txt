@@ -10,7 +10,7 @@ EmbeddingGemma 2 · 本地语义检索（Windows 包）
 
 目录里的 exe
 ------------
-EmbeddingGemma2.exe      启动器（13 KB），**双击这个**
+EmbeddingGemma2.exe      启动器（约 30 KB），**双击这个**
 EmbeddingGemma2App.exe   同一个启动器（沿用了老版本的文件名，点它也一样）
 EmbeddingGemma2Core.exe  真正的 Electron 主程序，不要直接双击
 
