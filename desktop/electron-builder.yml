@@ -19,6 +19,8 @@ files:
 
 # 解压目录里附带的启动/安装脚本（Electron 不能从含中文的路径启动）
 extraFiles:
+  - from: extra/EmbeddingGemma2.exe
+    to: EmbeddingGemma2.exe
   - from: extra/Install.cmd
     to: Install.cmd
   - from: extra/Install.ps1
@@ -53,6 +55,8 @@ extraResources:
 # ---------------------------------------------------------------
 win:
   icon: build/icon.ico
+  # 真正的 Electron 主程序；用户双击的 EmbeddingGemma2.exe 是 launcher（见 extraFiles）
+  executableName: EmbeddingGemma2App
   target:
     - target: nsis
       arch: [x64]

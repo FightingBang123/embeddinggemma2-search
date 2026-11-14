@@ -39,10 +39,19 @@ if (-not (Test-Path (Join-Path $webOut 'index.html'))) {
     throw "build output missing: $webOut\index.html"
 }
 
-Write-Host "[3/3] backend import check" -ForegroundColor Cyan
+Write-Host "[3/4] backend import check" -ForegroundColor Cyan
 $env:PYTHONPATH = Join-Path $root 'backend\lib'
 python -c "import sys; sys.path.insert(0, r'$root\backend'); import app.main as m; print('ok  routes:', len(m.app.routes))"
 if ($LASTEXITCODE -ne 0) { throw "backend import failed" }
+
+Write-Host "[4/4] desktop launcher" -ForegroundColor Cyan
+$launcherScript = Join-Path $PSScriptRoot 'build-launcher.ps1'
+if (Test-Path $launcherScript) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $launcherScript
+    if ($LASTEXITCODE -ne 0) { throw "launcher build failed" }
+} else {
+    Write-Host '      skipped (build-launcher.ps1 not found)'
+}
 
 $files = Get-ChildItem $webOut -Recurse -File
 $total = ($files | Measure-Object Length -Sum).Sum

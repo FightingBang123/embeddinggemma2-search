@@ -6,30 +6,44 @@
 而且不弹窗、不写日志、退出码为空——表现就是"双击了没动静"。中文目录（如
 `D:\AI\GPU混合集群\...`）就会触发。
 
-已实测：
+已实测（同一份打包产物）：
 
-| 启动位置 | 结果 |
+| 启动方式 | 结果 |
 |---|---|
-| `D:\AI\GPU混合集群\release\desktop\win-unpacked\EmbeddingGemma2.exe` | 静默退出，stderr：`crashpad_client_win.cc:887 not connected` |
-| `C:\eg2app\EmbeddingGemma2.exe`（纯英文路径） | 正常启动，窗口标题「EmbeddingGemma 2 · 语义检索」 |
-| `%LOCALAPPDATA%\Programs\EmbeddingGemma2\`（`Install.cmd` 安装后） | 正常启动 |
+| 真正的 Electron 主程序 `EmbeddingGemma2App.exe`，位于 `D:\AI\GPU混合集群\...` | 静默退出，stderr：`crashpad_client_win.cc:887 not connected` |
+| 同一 exe 放到 `C:\eg2app\`（纯英文路径） | 正常启动，窗口标题「EmbeddingGemma 2 · 语义检索」 |
+| 安装到 `%LOCALAPPDATA%\Programs\EmbeddingGemma2\`（ASCII） | 正常启动 |
 
-**解决**：用解压目录里的 `Install.cmd`。它会：
+**现在的处理**：v1.5.0 起，解压目录里的 `EmbeddingGemma2.exe` 是一个 11 KB 的
+**启动器**，而 Electron 主程序改名 `EmbeddingGemma2App.exe`。双击启动器时：
 
-1. 把整个目录复制到 `%LOCALAPPDATA%\Programs\EmbeddingGemma2`（纯 ASCII）
-2. 在桌面创建快捷方式
-3. 用正确的工作目录启动
+1. 路径是纯英文 → 直接启动主程序；
+2. 路径含中文 → 先建目录联接
+   `%LOCALAPPDATA%\Programs\EmbeddingGemma2Runtime` → 当前目录，
+   再从**英文路径**启动主程序（瞬时，不复制 467 MB）；
+3. 联接被策略/杀软禁止 → 退化为复制整个目录到
+   `%LOCALAPPDATA%\Programs\EmbeddingGemma2`（带进度窗）；
+4. 两条路都失败 → 弹窗说明原因，并提示改用 `Install.cmd` 或移到英文目录。
 
-也可以手动把整个目录移到 `D:\Apps\EmbeddingGemma2` 这类纯英文路径，再双击 exe。
+诊断日志：`%TEMP%\embeddinggemma2-launcher.log`；该位置不可写时写到 exe 同目录的
+`launcher.log`。里面记录了 `here=… ascii=…`、`junction … ok=`、`copyTree copied=…`
+等关键步骤。
 
-> 同一台机器上，含中文的**工作目录**同样会让 Chromium 初始化失败，
-> 所以 `Install.ps1` / `Run.ps1` 都会先 `cd` 到安装目录再启动，并清掉
-> 开发环境可能残留的 `ELECTRON_RUN_AS_NODE=1`（该变量会让 Electron 退化成 Node 直接退出）。
+**仍然失败时的三步**：
+
+1. 看上面的 launcher 日志，确认卡在哪一步；
+2. 双击 `Install.cmd`（PowerShell 安装到 ASCII 目录 + 桌面快捷方式，最稳）；
+3. 或把整个目录移到 `D:\Apps\EmbeddingGemma2` 这类纯英文路径，再双击 exe。
+
+> 含中文的**工作目录**同样会让 Chromium 初始化失败，所以启动器/安装脚本都会在
+> 启动主程序前把工作目录切到 ASCII 路径，并清掉开发环境可能残留的
+> `ELECTRON_RUN_AS_NODE=1`（该变量会让 Electron 退化成 Node 直接退出）。
 
 ## 看日志
 
 | 日志 | 位置 |
 |---|---|
+| 启动器决策 | `%TEMP%\embeddinggemma2-launcher.log`（或 exe 同目录 `launcher.log`） |
 | 主进程 stdout/stderr | 从终端启动才能看到（双击看不到） |
 | 推理进程 | `%APPDATA%\embeddinggemma2-desktop\logs\llama.log` |
 | 数据目录 | `%APPDATA%\embeddinggemma2-desktop\data\`（菜单「文件 → 打开数据目录」） |
@@ -39,7 +53,7 @@
 ```cmd
 cd /d "%LOCALAPPDATA%\Programs\EmbeddingGemma2"
 set ELECTRON_RUN_AS_NODE=
-EmbeddingGemma2.exe --enable-logging=stderr
+EmbeddingGemma2App.exe --enable-logging=stderr
 ```
 
 ## 首次启动弹「准备模型」但下载失败

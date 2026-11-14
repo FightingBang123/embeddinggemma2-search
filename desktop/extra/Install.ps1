@@ -1,5 +1,7 @@
 # EmbeddingGemma 2 - install to an ASCII-only path and launch.
 # Called by Install.cmd. ASCII-only output on purpose (cmd codepage).
+# Note: double-clicking EmbeddingGemma2.exe works too - that exe is a launcher
+# which performs the same relocation when needed.
 
 $ErrorActionPreference = 'Stop'
 $src = $PSScriptRoot
@@ -13,8 +15,10 @@ Get-ChildItem -LiteralPath $src -Force | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination $dest -Recurse -Force
 }
 
-if (-not (Test-Path (Join-Path $dest 'EmbeddingGemma2.exe'))) {
-    throw "copy failed: exe not found in $dest"
+$launcher = Join-Path $dest 'EmbeddingGemma2.exe'
+$appExe = Join-Path $dest 'EmbeddingGemma2App.exe'
+if (-not (Test-Path $launcher) -or -not (Test-Path $appExe)) {
+    throw "copy failed: expected EmbeddingGemma2.exe and EmbeddingGemma2App.exe in $dest"
 }
 
 Write-Host '[2/4] model check'
@@ -30,18 +34,17 @@ if (Test-Path $model) {
 }
 
 Write-Host '[3/4] desktop shortcut'
-$exe = Join-Path $dest 'EmbeddingGemma2.exe'
 $desktop = [Environment]::GetFolderPath('Desktop')
 $ws = New-Object -ComObject WScript.Shell
 $lnk = $ws.CreateShortcut((Join-Path $desktop 'EmbeddingGemma 2.lnk'))
-$lnk.TargetPath = $exe
+$lnk.TargetPath = $launcher
 $lnk.WorkingDirectory = $dest
-$lnk.IconLocation = "$exe,0"
+$lnk.IconLocation = "$launcher,0"
 $lnk.Description = 'EmbeddingGemma 2 local semantic search'
 $lnk.Save()
 
 Write-Host '[4/4] starting'
 # 某些开发环境会全局设置 ELECTRON_RUN_AS_NODE=1，Electron 会退化成 Node 直接退出
 Remove-Item Env:\ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-Start-Process -FilePath $exe -WorkingDirectory $dest
+Start-Process -FilePath $launcher -WorkingDirectory $dest
 Write-Host 'done. shortcut: EmbeddingGemma 2'

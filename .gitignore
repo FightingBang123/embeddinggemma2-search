@@ -29,6 +29,9 @@ desktop/node_modules/
 desktop/resources/runtime/
 desktop/resources/models/
 
+# compiled launcher (built by build/build-launcher.ps1)
+desktop/extra/EmbeddingGemma2.exe
+
 # python bytecode
 __pycache__/
 *.py[cod]

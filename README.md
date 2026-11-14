@@ -18,6 +18,7 @@ desktop/
 ├── electron-builder.yml   默认包（内置模型）：win/mac/linux 打包配置
 ├── electron-builder.slim.yml     轻量包（不含模型，首次启动下载）
 ├── build/                  icon.ico / icon.png / entitlements.mac.plist
+├── launcher/Launcher.cs    用户双击的启动器（自动处理中文路径）
 ├── src/main/             主进程
 │   ├── main.js             生命周期、窗口、菜单、单实例
 │   ├── llama.js            拉起 llama-server（自动挑端口、等就绪、退出清理）
@@ -48,19 +49,20 @@ npm run dist:win:slim       # 轻量包（不含模型，首次启动下载）
 
 | 产物 | 体积 | 说明 |
 |---|---|---|
-| `EmbeddingGemma2-<v>-win-x64.zip` | ~467 MB | **含 GGUF**，解压后先跑 `Install.cmd`，首次启动无需联网 |
+| `EmbeddingGemma2-<v>-win-x64.zip` | ~467 MB | **含 GGUF**，解压后直接双击 `EmbeddingGemma2.exe`，首次启动无需联网 |
 | `EmbeddingGemma2-<v>-win-slim-x64.zip` | ~198 MB | 不含模型，首次启动向导下载（约 310 MB） |
 
-> ⚠️ **必须用 `Install.cmd` 启动，或解压到纯英文路径**。Chromium 在含中文的路径/工作目录下会
-> 静默退出（双击 exe 毫无反应），这是 Electron 的已知行为。`Install.cmd` 会把程序（含内置模型）
-> 复制到 `%LOCALAPPDATA%\Programs\EmbeddingGemma2` 并建桌面快捷方式。
-> 细节与其它故障见 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)。
+> ⚠️ 解压到**任何**目录都可以（含中文）。双击 `EmbeddingGemma2.exe`（启动器）即可：
+> 它检测到路径含非 ASCII 字符时，会自动建一个 ASCII 目录联接
+> `%LOCALAPPDATA%\Programs\EmbeddingGemma2Runtime` 指向当前目录，再从那里拉起程序；
+> 联接不可用时退化为复制到 `%LOCALAPPDATA%\Programs\EmbeddingGemma2`。
+> 诊断日志：`%TEMP%\embeddinggemma2-launcher.log`（不可写时落在 exe 同目录的 `launcher.log`）。
+> 细节见 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)。
 
-
-> ⚠️ **必须用 `Install.cmd` 启动，或解压到纯英文路径**。Chromium 在含中文的路径/工作目录下会
-> 静默退出（双击 exe 毫无反应），这是 Electron 的已知行为。`Install.cmd` 会把程序复制到
-> `%LOCALAPPDATA%\Programs\EmbeddingGemma2` 并建桌面快捷方式。
-> 细节与其它故障见 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)。
+| 文件 | 作用 |
+|---|---|
+| `EmbeddingGemma2.exe` | **启动器**（11 KB .NET），用户双击这个；处理非 ASCII 路径 |
+| `EmbeddingGemma2App.exe` | 真正的 Electron 主程序；从中文路径直接启动会静默退出 |
 
 ```bash
 npx electron-builder --dir       # 只出免安装目录（最快，CI 友好）
