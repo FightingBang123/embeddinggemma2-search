@@ -13,7 +13,7 @@
     "icon": "python ../build/make-icon.py",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
-    "dist:win:offline": "electron-builder --win --config electron-builder.offline.yml",
+    "dist:win:slim": "electron-builder --win --config electron-builder.slim.yml",
     "dist:mac": "electron-builder --mac",
     "dist:linux": "electron-builder --linux"
   },

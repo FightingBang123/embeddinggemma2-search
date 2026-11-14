@@ -15,8 +15,8 @@ llama.cpp 出向量，React 提供界面。两种形态共用同一套前端与�
 ```
 desktop/
 ├── package.json          Electron 45 + electron-builder
-├── electron-builder.yml   win(nsis/zip) / mac(dmg) / linux(AppImage)，不含模型
-├── electron-builder.offline.yml  离线包（GGUF 一起打进安装包）
+├── electron-builder.yml   默认包（内置模型）：win/mac/linux 打包配置
+├── electron-builder.slim.yml     轻量包（不含模型，首次启动下载）
 ├── build/                  icon.ico / icon.png / entitlements.mac.plist
 ├── src/main/             主进程
 │   ├── main.js             生命周期、窗口、菜单、单实例
@@ -39,17 +39,23 @@ npm install                 # 首次
 npm run fetch-runtime       # 取当前平台的 llama.cpp；加 --with-model 顺带下 GGUF
 npm run selfcheck           # 不起窗口，验证 推理 + 上传 + 检索
 npm start                   # 开发运行（需正常桌面会话）
-npm run dist:win            # 打包；另有 dist:mac / dist:linux
-npm run dist:win:offline    # 离线包（含 296 MB 模型）
+npm run dist:win            # 打包（默认内置模型）；另有 dist:mac / dist:linux
+npm run dist:win:slim       # 轻量包（不含模型，首次启动下载）
 ```
 
 打包前先 `build\build.ps1` 产出 `release\web`，图标由 `python build\make-icon.py` 生成到 `desktop\build\`。
-默认包**不带模型**（首次启动向导下载），产物在 `release\desktop\`：
+**默认包内置模型**，装好即可用、完全离线；产物在 `release\desktop\`：
 
 | 产物 | 体积 | 说明 |
 |---|---|---|
-| `EmbeddingGemma2-<v>-win-x64.zip` | ~198 MB | 免安装，解压后**先跑 `Install.cmd`**；首次启动下载模型 |
-| `EmbeddingGemma2-<v>-win-offline-x64.zip` | ~467 MB | 含 GGUF，完全离线 |
+| `EmbeddingGemma2-<v>-win-x64.zip` | ~467 MB | **含 GGUF**，解压后先跑 `Install.cmd`，首次启动无需联网 |
+| `EmbeddingGemma2-<v>-win-slim-x64.zip` | ~198 MB | 不含模型，首次启动向导下载（约 310 MB） |
+
+> ⚠️ **必须用 `Install.cmd` 启动，或解压到纯英文路径**。Chromium 在含中文的路径/工作目录下会
+> 静默退出（双击 exe 毫无反应），这是 Electron 的已知行为。`Install.cmd` 会把程序（含内置模型）
+> 复制到 `%LOCALAPPDATA%\Programs\EmbeddingGemma2` 并建桌面快捷方式。
+> 细节与其它故障见 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)。
+
 
 > ⚠️ **必须用 `Install.cmd` 启动，或解压到纯英文路径**。Chromium 在含中文的路径/工作目录下会
 > 静默退出（双击 exe 毫无反应），这是 Electron 的已知行为。`Install.cmd` 会把程序复制到

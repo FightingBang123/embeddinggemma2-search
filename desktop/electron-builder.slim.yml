@@ -1,13 +1,12 @@
-# 离线包：把 GGUF 一起打进安装包（体积大，首次启动无需联网）。
-#   npm run dist:win:offline
-# 说明：模型约 296 MB，NSIS 压缩后安装包 ~400 MB；32 位 makensis 处理超大包时可能
-# 报 "error creating mmap"，若遇到请改用 zip 目标或减小模型。
+# 轻量包：不带模型（约 198 MB），首次启动时向导下载 GGUF 到 userData。
+#   npm run dist:win:slim
+# 默认包（electron-builder.yml）已内置模型，安装后无需联网。
 appId: com.pzibang.embeddinggemma2
 productName: EmbeddingGemma2
 copyright: Copyright © 2026 pzibang
 
 directories:
-  output: ../release/desktop-offline
+  output: ../release/desktop-slim
   buildResources: build
 
 npmRebuild: false
@@ -39,15 +38,13 @@ extraResources:
     to: runtime
   - from: ../release/web
     to: web
-  - from: resources/models
-    to: models
 
 win:
   icon: build/icon.ico
   target:
     - target: nsis
       arch: [x64]
-  artifactName: ${productName}-${version}-win-offline-${arch}.${ext}
+  artifactName: ${productName}-${version}-win-slim-${arch}.${ext}
   signtoolOptions:
     signingHashAlgorithms: [sha256]
     rfc3161TimeStampServer: http://timestamp.digicert.com
@@ -60,3 +57,24 @@ nsis:
   shortcutName: EmbeddingGemma 2
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
+
+mac:
+  icon: build/icon.png
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  artifactName: ${productName}-${version}-mac-slim-${arch}.${ext}
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: false
+
+linux:
+  icon: build/icon.png
+  category: Utility
+  target:
+    - target: AppImage
+      arch: [x64]
+  artifactName: ${productName}-${version}-linux-slim-${arch}.${ext}

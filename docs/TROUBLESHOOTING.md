@@ -47,7 +47,7 @@ EmbeddingGemma2.exe --enable-logging=stderr
 - 下载走 hf-mirror；若网络能直连 HF，可设 `HF_MIRROR=https://huggingface.co` 后重启
 - 也可以手动下载 `embeddinggemma-2-Q8_0.gguf`（约 310 MB）放到
   `%APPDATA%\embeddinggemma2-desktop\data\models\`，再启动
-- 离线包（`*-win-offline-*.zip`）已内置模型，不存在这一步
+- 默认包已内置模型（`resources\models\`），只有 `*-win-slim-*.zip` 才会走这一步
 
 ## 窗口起来了但检索报错
 

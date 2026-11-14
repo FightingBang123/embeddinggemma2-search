@@ -31,7 +31,7 @@
 | 推理进程 | `llama.js` 拉起 llama-server | 崩溃可重启；Windows 用 `taskkill /T` 连带子进程 |
 | 端口 | `freePort(8080)`，失败由系统分配 | 避免和用户已有的 llama.cpp 冲突 |
 | 存储 | SQLite（`node:sqlite`，schema 与服务器端一致） | 无原生编译依赖；两种形态可共用/互换同一个 `app.db` |
-| 首次启动 | 缺模型/运行时 → 向导下载 | 安装包可以不带 300 MB 模型 |
+| 首次启动 | 模型随包；缺失时才走向导下载 | 默认包 467 MB，`-slim` 变体才需下载 |
 | 安全 | `contextIsolation` + `sandbox`，不暴露 Node | preload 只放出 4 个方法 |
 | 单实例 | `requestSingleInstanceLock` | 防止两个进程抢同一份索引 |
 
@@ -40,7 +40,7 @@
 ```
 desktop/
   electron-builder.yml          安装包（不含模型）
-  electron-builder.offline.yml  离线包（含 GGUF）
+  electron-builder.slim.yml     轻量包（不含 GGUF）
   build/                        icon.ico / icon.png / entitlements.mac.plist
   src/main/main.js      生命周期 / 窗口 / 菜单 / 单实例 / 首次启动分支
   src/main/llama.js     子进程：找二进制、挑端口、等 /health、退出清理
@@ -100,8 +100,8 @@ build/make-icon.py ──▶ desktop/build/icon.{ico,png}
 desktop/scripts/fetch-runtime.mjs ──▶ desktop/resources/runtime[/models]
 build/build.ps1    前端构建 + 后端导入自检
 build/package.ps1  源码包 / -WithRuntime 离线包
-desktop: npm run dist:win            ──▶ release/desktop/*.zip（~198 MB，不含模型）
-desktop: npm run dist:win:offline    ──▶ release/desktop-offline/*.zip（~467 MB，含模型）
+desktop: npm run dist:win          ──▶ release/desktop/*.zip（~467 MB，内置模型，离线可用）
+desktop: npm run dist:win:slim     ──▶ release/desktop-slim/*.zip（~198 MB，首次启动下载模型）
 ```
 
 签名采用"配置就位、无证书自动跳过"：Windows 走 `signtoolOptions`（`CSC_LINK`/`CSC_NAME` + RFC3161 时间戳），macOS 走 hardened runtime + entitlements 文件，公证用 `APPLE_ID`/`APPLE_TEAM_ID`，详见 `docs/SIGNING.md`。
@@ -114,7 +114,8 @@ desktop: npm run dist:win:offline    ──▶ release/desktop-offline/*.zip（~
 | 桌面后端用 Node 重写 | 去掉 Python 依赖，真正双击即用 | 两套后端实现需同步维护 |
 | 统一用 SQLite（`node:sqlite`） | 与服务器端同 schema，可互换数据；无需编译原生模块 | Node 24 仍标记 experimental（启动警告已过滤） |
 | 只做向量检索 | 语义问答足够，少一套索引 | 精确型号/错误码召回弱 |
-| 安装包默认不带模型 | 体积从 467 MB 降到 198 MB，绕开 NSIS 32 位 mmap 限制 | 首次启动需联网下载 |
+| 模型默认随包（`resources/models`） | 安装即用、完全离线，用户不用等下载 | 包体 467 MB；模型优先级：随包 > userData |
+| 保留 `-slim` 变体 | 弱网/小带宽场景可只要 198 MB | 首次启动需联网下载 310 MB |
 | 单用户、无鉴权 | 只绑 127.0.0.1 | 多人共享走服务器模式 + 反代鉴权 |
 
 ## 已知限制

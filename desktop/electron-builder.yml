@@ -33,14 +33,15 @@ extraFiles:
 asarUnpack:
   - node_modules/pdf-parse/**/*
 
-# 随包携带：推理运行时 + 前端构建产物。
-# 模型默认不带（首次启动向导下载到 userData，安装包小很多且不受 NSIS 32 位 mmap 限制）；
-# 需要离线包用 electron-builder.offline.yml。
+# 随包携带：推理运行时 + 前端构建产物 + 模型（默认离线可用，安装后首次启动不再下载）
+# 想要小体积、首次启动再下载模型：用 electron-builder.slim.yml
 extraResources:
   - from: resources/runtime
     to: runtime
   - from: ../release/web
     to: web
+  - from: resources/models
+    to: models
 
 # ---------------------------------------------------------------
 # 代码签名占位：配置已就位，但没有证书时自动跳过（不影响构建）。
