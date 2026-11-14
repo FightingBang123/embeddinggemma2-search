@@ -125,4 +125,7 @@ desktop: npm run dist:win:offline    ──▶ release/desktop-offline/*.zip（~
 - 未接入 electron-updater 自动更新；未签名（SmartScreen 会提示"未知发布者"）。
 - 首次启动下载基于 hf-mirror；目标环境只能直连 Hugging Face 时用 `HF_MIRROR=https://huggingface.co`。
 - Linux/ macOS 包需要在对应平台构建（llama.cpp 运行时按平台下载，交叉编译不适用）。
+- **Electron 不能从含非 ASCII 字符的路径或工作目录启动**，且失败是静默的（不弹窗、不写日志）。
+  分发包因此内置 `Install.cmd/ps1`：复制到 `%LOCALAPPDATA%\Programs\EmbeddingGemma2`（ASCII）、
+  建桌面快捷方式、以正确 cwd 启动；`Run.ps1` 会先检测路径并提示。详见 `docs/TROUBLESHOOTING.md`。
 

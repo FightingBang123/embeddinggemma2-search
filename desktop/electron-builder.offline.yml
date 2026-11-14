@@ -21,6 +21,19 @@ files:
 asarUnpack:
   - node_modules/pdf-parse/**/*
 
+# 解压目录里附带的启动/安装脚本（Electron 不能从含中文的路径启动）
+extraFiles:
+  - from: extra/Install.cmd
+    to: Install.cmd
+  - from: extra/Install.ps1
+    to: Install.ps1
+  - from: extra/Run.cmd
+    to: Run.cmd
+  - from: extra/Run.ps1
+    to: Run.ps1
+  - from: extra/README.txt
+    to: README.txt
+
 extraResources:
   - from: resources/runtime
     to: runtime

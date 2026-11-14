@@ -45,15 +45,22 @@ npm run dist:win:offline    # 离线包（含 296 MB 模型）
 
 | 产物 | 体积 | 说明 |
 |---|---|---|
-| `EmbeddingGemma2-<v>-win-x64.zip` | ~198 MB | 免安装，解压即用；首次启动下载模型 |
+| `EmbeddingGemma2-<v>-win-x64.zip` | ~198 MB | 免安装，解压后**先跑 `Install.cmd`**；首次启动下载模型 |
 | `EmbeddingGemma2-<v>-win-offline-x64.zip` | ~467 MB | 含 GGUF，完全离线 |
 
+> ⚠️ **必须用 `Install.cmd` 启动，或解压到纯英文路径**。Chromium 在含中文的路径/工作目录下会
+> 静默退出（双击 exe 毫无反应），这是 Electron 的已知行为。`Install.cmd` 会把程序复制到
+> `%LOCALAPPDATA%\Programs\EmbeddingGemma2` 并建桌面快捷方式。
+> 细节与其它故障见 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)。
+
 ```bash
-npx electron-builder --dir     # 只出免安装目录（最快，CI 友好）
+npx electron-builder --dir       # 只出免安装目录（最快，CI 友好）
+npx electron-builder --win zip   # 免安装 zip（本仓库产出的就是这种）
 npx electron-builder --win nsis  # 需要 NSIS；受限环境可能因 makensis mmap 失败
 ```
 
 签名/公证：配置已就位（无证书自动跳过），步骤见 [docs/SIGNING.md](docs/SIGNING.md)。
+
 
 
 ## 服务器模式
