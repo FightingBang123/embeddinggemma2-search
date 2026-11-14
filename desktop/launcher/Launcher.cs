@@ -37,103 +37,56 @@ internal static class Launcher
                 return Start(here, local, args);
             }
 
-            // Non-ASCII path: preferred fix is a junction with an ASCII name
-            // (instant, no copying); fall back to copying the whole folder.
-            string link = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                @"Programs\EmbeddingGemma2Runtime");
-            string linkExe = Path.Combine(link, AppExe);
-
-            if (TryEnsureJunction(link, here) && File.Exists(linkExe))
+            // Non-ASCII path: Chromium cannot start from it. Install a copy to an
+            // ASCII location (once) and start it there. Copy is the same flow the
+            // verified Install.ps1 uses, so behaviour is predictable.
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string[] targets = new string[]
             {
-                Log("launch via junction " + link);
-                return Start(link, linkExe, args);
+                Path.Combine(localAppData, @"Programs\EmbeddingGemma2"),
+                Path.Combine(Path.GetTempPath(), "EmbeddingGemma2"),
+            };
+
+            string lastError = null;
+            foreach (string target in targets)
+            {
+                try
+                {
+                    if (!IsAscii(target)) continue;
+                    string targetExe = Path.Combine(target, AppExe);
+                    if (!File.Exists(targetExe) || IsSourceNewer(here, target))
+                    {
+                        Log("copy -> " + target);
+                        CopyWithProgress(here, target);
+                    }
+                    if (File.Exists(targetExe))
+                    {
+                        Log("launch " + targetExe);
+                        return Start(target, targetExe, args);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Log("target failed " + target + ": " + ex.Message);
+                }
             }
 
-            string target = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                @"Programs\EmbeddingGemma2");
-            string targetExe = Path.Combine(target, AppExe);
-
-            if (!File.Exists(targetExe) || IsSourceNewer(here, target))
-            {
-                Log("copy -> " + target);
-                CopyWithProgress(here, target);
-                Log("copy done, exe=" + File.Exists(targetExe));
-            }
-
-            if (!File.Exists(targetExe))
-            {
-                Dialog(
-                    "无法从当前目录启动（路径含非 ASCII 字符，Chromium 会直接退出），" +
-                    "自动修复也失败了。\r\n\r\n" +
-                    "请把压缩包解压到纯英文目录后重试，或运行压缩包里的 Install.cmd。\r\n\r\n" +
-                    "当前目录：" + here,
-                    MessageBoxIcon.Error);
-                return 1;
-            }
-
-            return Start(target, targetExe, args);
+            Dialog(
+                "当前目录包含非 ASCII 字符（如中文），Chromium 无法从这个路径启动，\r\n" +
+                "自动安装到英文目录也失败了。\r\n\r\n" +
+                (lastError == null ? "" : "错误：" + lastError + "\r\n\r\n") +
+                "可以改用压缩包里的 Install.cmd，或把整个目录移到\r\n" +
+                "D:\\Apps\\EmbeddingGemma2 这类纯英文路径后重试。\r\n\r\n" +
+                "当前目录：" + here,
+                MessageBoxIcon.Error);
+            return 1;
         }
         catch (Exception ex)
         {
             Dialog("启动失败：\r\n\r\n" + ex.Message, MessageBoxIcon.Error);
             return 1;
         }
-    }
-
-    // Creates/refreshes a directory junction so the app can be started through an
-    // ASCII path even when it lives under a Chinese-named folder.
-    private static bool TryEnsureJunction(string link, string target)
-    {
-        try
-        {
-            string linkExe = Path.Combine(link, AppExe);
-            if (Directory.Exists(link))
-            {
-                bool isJunction = (File.GetAttributes(link) & FileAttributes.ReparsePoint) != 0;
-                if (!isJunction)
-                {
-                    Log("junction blocked: real directory at " + link);
-                    return false;
-                }
-                if (File.Exists(linkExe) && IsSameSize(linkExe, Path.Combine(target, AppExe)))
-                {
-                    return true; // already pointing at this copy
-                }
-                Directory.Delete(link, false); // removes the link only
-            }
-
-            string cmd = "/c mklink /J \"" + link + "\" \"" + target + "\"";
-            var psi = new ProcessStartInfo("cmd.exe", cmd)
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            };
-            using (Process p = Process.Start(psi))
-            {
-                p.StandardOutput.ReadToEnd();
-                p.StandardError.ReadToEnd();
-                p.WaitForExit(15000);
-            }
-
-            bool ok = File.Exists(linkExe);
-            Log("junction " + link + " -> " + target + " ok=" + ok);
-            return ok;
-        }
-        catch (Exception ex)
-        {
-            Log("junction failed: " + ex.GetType().Name + " " + ex.Message);
-            return false;
-        }
-    }
-
-    private static bool IsSameSize(string a, string b)
-    {
-        try { return new FileInfo(a).Length == new FileInfo(b).Length; }
-        catch { return false; }
     }
 
     private static int Start(string workDir, string exe, string[] args)

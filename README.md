@@ -53,15 +53,16 @@ npm run dist:win:slim       # 轻量包（不含模型，首次启动下载）
 | `EmbeddingGemma2-<v>-win-slim-x64.zip` | ~198 MB | 不含模型，首次启动向导下载（约 310 MB） |
 
 > ⚠️ 解压到**任何**目录都可以（含中文）。双击 `EmbeddingGemma2.exe`（启动器）即可：
-> 它检测到路径含非 ASCII 字符时，会自动建一个 ASCII 目录联接
-> `%LOCALAPPDATA%\Programs\EmbeddingGemma2Runtime` 指向当前目录，再从那里拉起程序；
-> 联接不可用时退化为复制到 `%LOCALAPPDATA%\Programs\EmbeddingGemma2`。
+> 它检测到路径含非 ASCII 字符时，先把程序安装到
+> `%LOCALAPPDATA%\Programs\EmbeddingGemma2`（ASCII 路径，首次约 10–30 秒，带进度窗），
+> 再从那里启动；该目录不可写时退化到 `%TEMP%\EmbeddingGemma2`。
+> 之后再双击会比对版本、跳过复制，直接秒开。
 > 诊断日志：`%TEMP%\embeddinggemma2-launcher.log`（不可写时落在 exe 同目录的 `launcher.log`）。
 > 细节见 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)。
 
 | 文件 | 作用 |
 |---|---|
-| `EmbeddingGemma2.exe` | **启动器**（11 KB .NET），用户双击这个；处理非 ASCII 路径 |
+| `EmbeddingGemma2.exe` | **启动器**（10 KB .NET），用户双击这个；解决非 ASCII 路径 |
 | `EmbeddingGemma2App.exe` | 真正的 Electron 主程序；从中文路径直接启动会静默退出 |
 
 ```bash

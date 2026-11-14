@@ -9,16 +9,16 @@ EmbeddingGemma 2 · 本地语义检索（Windows 包）
 
 目录里两个 exe 的分工
 --------------------
-EmbeddingGemma2.exe      启动器（11 KB），**双击这个**
+EmbeddingGemma2.exe      启动器（10 KB），**双击这个**
 EmbeddingGemma2App.exe   真正的 Electron 主程序
 
 为什么不能直接双击 App.exe：Chromium/Electron 在路径含非 ASCII 字符（如中文目录）时
-会静默退出、不报错。启动器会先建一个纯英文的目录联接
-  %LOCALAPPDATA%\Programs\EmbeddingGemma2Runtime
-指向当前目录，再从那里启动主程序；若联接不可用，则退化为把整个目录复制到
+会静默退出、不报错。启动器检测到这种情况后，会把整个目录安装到纯英文路径
   %LOCALAPPDATA%\Programs\EmbeddingGemma2
+（首次约 10-30 秒，带进度窗；该目录不可写时改用 %TEMP%\EmbeddingGemma2），
+再从那里启动主程序。之后再双击会跳过复制、直接启动。
 
-想要桌面快捷方式 / 固定安装位置：双击 Install.cmd（复制到上述目录并建快捷方式）。
+想要桌面快捷方式：双击 Install.cmd（复制到上述目录并建快捷方式）。
 
 数据位置
 --------

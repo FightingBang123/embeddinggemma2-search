@@ -14,20 +14,20 @@
 | 同一 exe 放到 `C:\eg2app\`（纯英文路径） | 正常启动，窗口标题「EmbeddingGemma 2 · 语义检索」 |
 | 安装到 `%LOCALAPPDATA%\Programs\EmbeddingGemma2\`（ASCII） | 正常启动 |
 
-**现在的处理**：v1.5.0 起，解压目录里的 `EmbeddingGemma2.exe` 是一个 11 KB 的
+**现在的处理**：v1.6.0 起，解压目录里的 `EmbeddingGemma2.exe` 是一个 10 KB 的
 **启动器**，而 Electron 主程序改名 `EmbeddingGemma2App.exe`。双击启动器时：
 
 1. 路径是纯英文 → 直接启动主程序；
-2. 路径含中文 → 先建目录联接
-   `%LOCALAPPDATA%\Programs\EmbeddingGemma2Runtime` → 当前目录，
-   再从**英文路径**启动主程序（瞬时，不复制 467 MB）；
-3. 联接被策略/杀软禁止 → 退化为复制整个目录到
-   `%LOCALAPPDATA%\Programs\EmbeddingGemma2`（带进度窗）；
-4. 两条路都失败 → 弹窗说明原因，并提示改用 `Install.cmd` 或移到英文目录。
+2. 路径含中文 → 先把整个目录安装到 `%LOCALAPPDATA%\Programs\EmbeddingGemma2`
+   （ASCII，首次 10–30 秒，带进度窗），再从那里启动；
+3. 该目录不可写 → 退化到 `%TEMP%\EmbeddingGemma2`（同样是 ASCII）；
+4. 都不行 → 弹窗说明原因，并提示改用 `Install.cmd` 或移到英文目录。
+
+之后再次双击：主程序已存在且版本一致时**跳过复制**，直接启动。
 
 诊断日志：`%TEMP%\embeddinggemma2-launcher.log`；该位置不可写时写到 exe 同目录的
-`launcher.log`。里面记录了 `here=… ascii=…`、`junction … ok=`、`copyTree copied=…`
-等关键步骤。
+`launcher.log`。里面记录了 `here=… ascii=…`、`copy -> …`、`copyTree copied=… skipped=…`、
+`launch …` 等关键步骤。
 
 **仍然失败时的三步**：
 
