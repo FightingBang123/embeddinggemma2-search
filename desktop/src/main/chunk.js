@@ -25,13 +25,42 @@ function decodeBytes(buf) {
   return utf8;
 }
 
+async function extractPdf(buffer) {
+  // pdf-parse 2.x 不再导出可直接调用的函数，改为 PDFParse 类：
+  //   const parser = new PDFParse({ data }); await parser.getText(); await parser.destroy()
+  // 沿用 1.x 的 pdfParse(buffer) 会直接抛 "pdfParse is not a function"。
+  const { PDFParse } = require('pdf-parse');
+  const parser = new PDFParse({ data: buffer });
+  try {
+    // pageJoiner 传空串，避免把 “-- 1 of 1 --” 这类页码标记切进向量块
+    const out = await parser.getText({ pageJoiner: '' });
+    return out.text || '';
+  } catch (err) {
+    const name = err && err.name ? err.name : '';
+    const message = err && err.message ? err.message : String(err);
+    if (name === 'PasswordException' || /password/i.test(message)) {
+      const e = new Error('PDF 已加密，需要密码；请先解密后再上传');
+      e.status = 422;
+      throw e;
+    }
+    if (/InvalidPDF|Invalid PDF|FormatError/i.test(`${name} ${message}`)) {
+      const e = new Error('PDF 文件损坏或格式不受支持');
+      e.status = 422;
+      throw e;
+    }
+    throw new Error(`PDF 解析失败：${message}`);
+  } finally {
+    try {
+      await parser.destroy();
+    } catch {
+      /* 解析失败时清理也可能失败，保留原始错误 */
+    }
+  }
+}
+
 async function extractText(name, buffer) {
   const suffix = path.extname(name).toLowerCase();
-  if (suffix === '.pdf') {
-    const pdfParse = require('pdf-parse');
-    const out = await pdfParse(buffer);
-    return out.text || '';
-  }
+  if (suffix === '.pdf') return extractPdf(buffer);
   if (suffix && !TEXT_SUFFIXES.has(suffix)) {
     const err = new Error(`unsupported file type: ${suffix}`);
     err.status = 415;

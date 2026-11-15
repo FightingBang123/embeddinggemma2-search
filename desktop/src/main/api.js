@@ -124,7 +124,12 @@ function createApiServer({ store, llama, paths, appVersion, platform }) {
           const text = await extractText(name, buffer);
           const pieces = chunkText(text);
           if (!pieces.length) {
-            results.push({ name, ok: false, error: 'no extractable text' });
+            const isPdf = path.extname(name).toLowerCase() === '.pdf';
+            results.push({
+              name,
+              ok: false,
+              error: isPdf ? 'PDF 中没有可提取的文字（可能是扫描件，需先 OCR）' : 'no extractable text',
+            });
             continue;
           }
           const started = Date.now();
