@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowRight, Check, Copy, Filter, Search, Sparkles, Timer, X } from "lucide-react";
+import { ArrowRight, Check, Copy, Filter, Rocket, Search, Sparkles, Timer, X } from "lucide-react";
 import type { Hit, SearchMode, SearchResponse } from "../api";
 import { Badge, Highlight, cn, scoreTone } from "../ui";
 
@@ -26,6 +26,7 @@ export function SearchPanel({
   filterDocId,
   onClearFilter,
   onFilterDoc,
+  onOpenHelp,
 }: {
   query: string;
   setQuery: (v: string) => void;
@@ -41,6 +42,7 @@ export function SearchPanel({
   filterDocId: string | null;
   onClearFilter: () => void;
   onFilterDoc: (id: string) => void;
+  onOpenHelp: () => void;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -159,9 +161,46 @@ export function SearchPanel({
             </div>
             <h2 className="text-[15px] font-semibold text-zinc-200">语义检索，不是关键词匹配</h2>
             <p className="mx-auto mt-2 max-w-md text-[12.5px] leading-relaxed text-zinc-500">
-              直接问问题即可。可以先从这些开始：
+              直接问问题即可。第一次用？按下面三步走：
             </p>
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
+
+            <div className="mt-5 rounded-xl border border-indigo-400/20 bg-indigo-500/[0.05] p-4 text-left">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-[12px] font-medium text-indigo-200">
+                  <Rocket className="size-3.5" />
+                  第一次使用 · 3 步上手
+                </div>
+                <button
+                  onClick={onOpenHelp}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-indigo-300/90 transition hover:bg-indigo-500/10 hover:text-indigo-200"
+                >
+                  打开完整引导
+                  <ArrowRight className="size-3" />
+                </button>
+              </div>
+              <div className="mt-2.5 grid gap-1.5 text-[11.5px] text-zinc-400 sm:grid-cols-3">
+                <span className="flex items-start gap-1.5">
+                  <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded bg-indigo-500/20 font-mono text-[9.5px] text-indigo-200">
+                    1
+                  </span>
+                  左侧上传资料
+                </span>
+                <span className="flex items-start gap-1.5">
+                  <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded bg-indigo-500/20 font-mono text-[9.5px] text-indigo-200">
+                    2
+                  </span>
+                  选一个任务模式
+                </span>
+                <span className="flex items-start gap-1.5">
+                  <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded bg-indigo-500/20 font-mono text-[9.5px] text-indigo-200">
+                    3
+                  </span>
+                  用完整句子提问
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}

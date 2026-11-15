@@ -47,6 +47,46 @@
   }
 }
 
+/* help center */
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+@keyframes help-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes help-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.help-backdrop {
+  animation: help-backdrop-in 160ms ease-out both;
+}
+
+.help-panel {
+  animation: help-panel-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .help-backdrop,
+  .help-panel {
+    animation: none;
+  }
+}
+
 /* subtle ambient glow behind the main panel */
 #root::before {
   content: "";

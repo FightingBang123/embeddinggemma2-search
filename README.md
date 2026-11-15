@@ -9,6 +9,9 @@ llama.cpp 出向量，React 提供界面。两种形态共用同一套前端与�
 
 ![桌面应用](docs/screenshot-desktop.png)
 
+> 第一次使用？看 [使用指南](docs/USER-GUIDE.md)，或在应用里按 `F1` / 点右上角「帮助」打开内置帮助中心：
+> 快速上手、最佳实践、模式说明、快捷键、常见问题与软件信息都在里面，完全离线。
+
 
 ## 桌面应用（跨平台）
 
@@ -72,6 +75,24 @@ npm run dist:win:slim       # 轻量包（不含模型，首次启动下载）
 | `EmbeddingGemma2App.exe` | 同一个启动器（沿用老版本文件名，点它也一样） |
 | `EmbeddingGemma2Core.exe` | 真正的 Electron 主程序；不要直接双击 |
 
+### 菜单栏与内置帮助
+
+桌面窗口常驻菜单栏，所有入口都指向同一份内置内容（离线，不依赖浏览器）：
+
+| 菜单 | 功能 |
+|---|---|
+| 文件 | 上传文档（`Ctrl+O`）、打开数据 / 日志目录、退出 |
+| 编辑 | 撤销、剪切、复制、粘贴、全选 |
+| 视图 | 刷新、缩放、全屏、开发者工具 |
+| 文档 | 快速上手、最佳实践、模式说明、快捷键、常见问题 |
+| 帮助 | 帮助中心（`F1`）、软件信息、复制诊断信息 |
+
+右上角「帮助」按钮和检索空状态的「3 步上手」卡片是同一入口。软件信息页会展示版本、运行时、
+模型、向量库统计和数据/日志路径，并提供「复制诊断信息」，方便反馈问题时定位环境。
+
+设计原则：**先给结论，再给解释**——每页先回答「第一步做什么」，再补充原因和边界；最佳实践
+同时给出「推荐 / 避免」对照和一条可复制的示例问题，减少新用户的选择成本。
+
 ```bash
 npx electron-builder --dir       # 只出免安装目录（最快，CI 友好）
 npx electron-builder --win zip   # 免安装 zip（本仓库产出的就是这种）
@@ -107,7 +128,7 @@ embeddinggemma2-search/
 │   ├── requirements.txt
 │   └── lib/                依赖（pip --target，免 venv，gitignore）
 ├── frontend/           前端源码（React 19 + Vite + TS + Tailwind）
-│   ├── src/                App / components / ui / api
+│   ├── src/                App / components（含 HelpCenter）/ ui / api / desktop 桥
 │   ├── vite.config.ts      构建产物 -> ../release/web
 │   └── package.json
 ├── build/              构建与打包
@@ -130,7 +151,7 @@ embeddinggemma2-search/
 │   ├── download.cmd        拉取 llama.cpp 与 GGUF
 │   └── health.py / fetch.py / smoke_test.py / ingest_samples.py
 ├── data/               运行数据（gitignore）
-├── docs/               补充文档与截图
+├── docs/               使用指南、截图、签名与故障排查
 ├── samples/            示例语料（中文 FAQ / 设计笔记 / 代码）
 └── logs/               运行日志（gitignore）
 ```

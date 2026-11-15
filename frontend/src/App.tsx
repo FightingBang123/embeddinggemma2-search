@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Lock, RefreshCw, ShieldCheck } from "lucide-react";
-import { api, type Hit, type SearchMode, type SearchResponse } from "./api";
+import { CircleQuestionMark, Lock, RefreshCw, ShieldCheck } from "lucide-react";
+import { api, type SearchMode, type SearchResponse } from "./api";
+import { HelpCenter } from "./components/HelpCenter";
 import { SearchPanel } from "./components/SearchPanel";
 import { Sidebar } from "./components/Sidebar";
+import { copyText, getDesktopInfo, isDesktop, onDesktopMenu } from "./desktop";
+import { buildDiagnostics } from "./diagnostics";
+import { normalizeHelpSection, type HelpSection } from "./help";
 import { cn, ToastStack, useHotkey, useToasts } from "./ui";
 
 export default function App() {
@@ -21,9 +25,16 @@ export default function App() {
   const [response, setResponse] = useState<SearchResponse | undefined>();
   const [filterDocId, setFilterDocId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [help, setHelp] = useState<{ open: boolean; section: HelpSection }>({ open: false, section: "quickstart" });
+  const [uploadSignal, setUploadSignal] = useState(0);
   const lastRun = useRef<{ query: string; mode: SearchMode; topK: number; dim: number; docId: string | null } | null>(
     null,
   );
+
+  const openHelp = useCallback((section: HelpSection = "quickstart") => {
+    setHelp({ open: true, section });
+  }, []);
+  const closeHelp = useCallback(() => setHelp((prev) => ({ ...prev, open: false })), []);
 
   const upload = useMutation({
     mutationFn: api.upload,
@@ -77,7 +88,18 @@ export default function App() {
     [query, filterDocId, topK, dim, mode, search],
   );
 
+  // 帮助中心里的示例问题：关掉弹层，填入问题并立即检索
+  const tryExample = useCallback(
+    (q: string) => {
+      closeHelp();
+      setQuery(q);
+      run({ query: q });
+    },
+    [closeHelp, run],
+  );
+
   useHotkey("/", (e) => {
+    if (help.open) return; // 帮助中心打开时不要抢焦点
     e.preventDefault();
     document.getElementById("search-input")?.focus();
   });
@@ -91,16 +113,68 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 原生菜单 → 渲染进程；菜单、帮助中心、快捷键共用同一套动作
+  useEffect(
+    () =>
+      onDesktopMenu((payload) => {
+        switch (payload.action) {
+          case "help":
+            openHelp(normalizeHelpSection(payload.section));
+            break;
+          case "upload":
+            closeHelp();
+            setUploadSignal((n) => n + 1);
+            break;
+          case "refresh":
+            void qc.invalidateQueries({ queryKey: ["health"] });
+            void qc.invalidateQueries({ queryKey: ["documents"] });
+            push("状态已刷新", "ok");
+            break;
+          case "copy-diagnostics":
+            void (async () => {
+              const info = await getDesktopInfo();
+              const ok = await copyText(
+                buildDiagnostics(info, health.data, docs.data?.length ?? 0, health.data?.stats.chunks ?? 0),
+              );
+              push(ok ? "诊断信息已复制到剪贴板" : "复制失败，请在「帮助 › 软件信息」中重试", ok ? "ok" : "error");
+            })();
+            break;
+        }
+      }),
+    [openHelp, closeHelp, push, qc, health.data, docs.data],
+  );
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === "F1") {
+        e.preventDefault();
+        openHelp("quickstart");
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+        e.preventDefault();
+        openHelp("shortcuts");
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        // 桌面版由原生菜单的 Ctrl+O 处理，避免同时弹出两个文件选择框
+        if (!isDesktop()) setUploadSignal((n) => n + 1);
+        return;
+      }
       if (e.key === "Escape") {
+        // 帮助中心优先吃掉 Esc：否则会顺手清空用户正在输入的检索词
+        if (help.open) {
+          closeHelp();
+          return;
+        }
         setQuery("");
         setFilterDocId(null);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [help.open, openHelp, closeHelp]);
 
   const offline = health.data && !health.data.llama.ok;
 
@@ -113,6 +187,7 @@ export default function App() {
         onUpload={(files) => upload.mutate(files)}
         onDelete={(id) => remove.mutate(id)}
         deletingId={deletingId}
+        uploadSignal={uploadSignal}
       />
 
       <main className="flex min-w-0 flex-1 flex-col">
@@ -130,6 +205,15 @@ export default function App() {
               <Lock className="size-3" />
               数据不出本机
             </span>
+            <button
+              onClick={() => openHelp("quickstart")}
+              title="帮助与上手引导 (F1)"
+              data-testid="open-help"
+              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-zinc-400 transition hover:border-indigo-400/30 hover:text-indigo-200"
+            >
+              <CircleQuestionMark className="size-3.5" />
+              帮助
+            </button>
             <button
               onClick={() => {
                 void qc.invalidateQueries({ queryKey: ["health"] });
@@ -174,10 +258,26 @@ export default function App() {
             setFilterDocId(id);
             run({ docId: id });
           }}
+          onOpenHelp={() => openHelp("quickstart")}
         />
       </main>
 
       <ToastStack toasts={toasts} onDismiss={dismiss} />
+
+      <HelpCenter
+        open={help.open}
+        section={help.section}
+        onSection={(section) => setHelp((prev) => ({ ...prev, section }))}
+        onClose={closeHelp}
+        health={health.data}
+        documents={docs.data?.length ?? 0}
+        onUpload={() => {
+          closeHelp();
+          setUploadSignal((n) => n + 1);
+        }}
+        onTryExample={tryExample}
+        push={push}
+      />
     </div>
   );
 }

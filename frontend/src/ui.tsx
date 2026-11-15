@@ -1,5 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export const cn = (...inputs: ClassValue[]) => clsx(inputs);
 
@@ -100,12 +100,13 @@ export type Toast = { id: number; text: string; tone: "info" | "ok" | "error" };
 export function useToasts() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const seq = useRef(0);
-  const push = (text: string, tone: Toast["tone"] = "info") => {
+  // 稳定引用：菜单监听等 effect 不应因为 toast 回调重建而反复挂载
+  const push = useCallback((text: string, tone: Toast["tone"] = "info") => {
     const id = ++seq.current;
     setToasts((prev) => [...prev, { id, text, tone }]);
     window.setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4200);
-  };
-  const dismiss = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+  const dismiss = useCallback((id: number) => setToasts((prev) => prev.filter((t) => t.id !== id)), []);
   return { toasts, push, dismiss };
 }
 

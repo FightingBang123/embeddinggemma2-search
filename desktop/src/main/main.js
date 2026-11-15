@@ -175,7 +175,8 @@ function createWindow(url) {
     minHeight: 640,
     backgroundColor: '#09090b',
     show: false,
-    autoHideMenuBar: true,
+    // 菜单栏常驻：软件信息、文档、帮助都在里面，隐藏起来等于没有
+    autoHideMenuBar: false,
     title: 'EmbeddingGemma 2 语义检索',
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
@@ -325,14 +326,22 @@ ipcMain.handle('setup:continue', async () => {
 });
 
 ipcMain.handle('desktop:info', () => ({
+  appName: 'EmbeddingGemma 2',
   version: app.getVersion(),
+  electron: process.versions.electron,
+  chrome: process.versions.chrome,
+  node: process.versions.node,
   platform: process.platform,
   arch: process.arch,
   dataDir: paths ? paths.data : userData.dir,
+  logsDir: paths ? paths.logs : '',
+  runtimeDir: paths ? paths.runtimeDir : '',
   modelFile: paths ? paths.modelFile : '',
+  webDir: paths ? paths.web : '',
   packaged: app.isPackaged,
   userDataDir: userData.dir,
   userDataKind: userData.kind,
+  dataDirFallback: Boolean(userData.fallback || userData.unwritable),
 }));
 
 ipcMain.handle('desktop:openData', () => {
@@ -343,29 +352,115 @@ ipcMain.handle('desktop:openLogs', () => {
   if (paths) shell.openPath(paths.logs);
 });
 
+ipcMain.handle('desktop:toggleFullscreen', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  const next = !mainWindow.isFullScreen();
+  mainWindow.setFullScreen(next);
+  return next;
+});
+
+ipcMain.handle('desktop:quit', () => {
+  app.quit();
+});
+
+/** 菜单动作统一走渲染进程的「帮助中心」，避免两套内容各说各话。 */
+function sendMenuAction(payload) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    log.log('menu action ignored (no window)', payload && payload.action);
+    return;
+  }
+  const send = () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('app:menu', payload);
+  };
+  if (mainWindow.webContents.isLoadingMainFrame()) mainWindow.webContents.once('did-finish-load', send);
+  else send();
+}
+
 function buildMenu() {
+  const isMac = process.platform === 'darwin';
+  const openData = () => paths && shell.openPath(paths.data);
+  const openLogs = () => paths && shell.openPath(paths.logs);
+  const openHelp = (section) => sendMenuAction({ action: 'help', section });
+
   const template = [
+    ...(isMac
+      ? [
+          {
+            label: 'EmbeddingGemma 2',
+            submenu: [
+              { label: '软件信息', click: () => openHelp('about') },
+              { type: 'separator' },
+              { role: 'services', label: '服务' },
+              { type: 'separator' },
+              { role: 'hide', label: '隐藏 EmbeddingGemma 2' },
+              { role: 'hideOthers', label: '隐藏其他' },
+              { role: 'unhide', label: '全部显示' },
+              { type: 'separator' },
+              { role: 'quit', label: '退出 EmbeddingGemma 2' },
+            ],
+          },
+        ]
+      : []),
     {
       label: '文件',
       submenu: [
-        { label: '打开数据目录', click: () => paths && shell.openPath(paths.data) },
-        { label: '打开日志目录', click: () => paths && shell.openPath(paths.logs) },
+        {
+          label: '上传文档…',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => sendMenuAction({ action: 'upload' }),
+        },
         { type: 'separator' },
-        { role: 'quit', label: '退出' },
+        { label: '打开数据目录', click: openData },
+        { label: '打开日志目录', click: openLogs },
+        ...(isMac ? [] : [{ type: 'separator' }, { role: 'quit', label: '退出' }]),
       ],
     },
-    { label: '编辑', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }] },
+    {
+      label: '编辑',
+      submenu: [
+        { role: 'undo', label: '撤销' },
+        { role: 'redo', label: '重做' },
+        { type: 'separator' },
+        { role: 'cut', label: '剪切' },
+        { role: 'copy', label: '复制' },
+        { role: 'paste', label: '粘贴' },
+        { role: 'selectAll', label: '全选' },
+      ],
+    },
     {
       label: '视图',
       submenu: [
-        { role: 'reload', label: '重新加载' },
+        { role: 'reload', label: '刷新页面' },
+        { type: 'separator' },
+        { role: 'resetZoom', label: '实际大小' },
+        { role: 'zoomIn', label: '放大' },
+        { role: 'zoomOut', label: '缩小' },
+        { type: 'separator' },
+        { role: 'togglefullscreen', label: '全屏' },
         { role: 'toggleDevTools', label: '开发者工具' },
+      ],
+    },
+    {
+      label: '文档',
+      submenu: [
+        { label: '快速上手指南', click: () => openHelp('quickstart') },
+        { label: '最佳实践', click: () => openHelp('best') },
+        { label: '检索模式说明', click: () => openHelp('modes') },
+        { label: '键盘快捷键', accelerator: 'CmdOrCtrl+/', click: () => openHelp('shortcuts') },
         { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
+        { label: '常见问题与故障排查', click: () => openHelp('faq') },
+      ],
+    },
+    {
+      label: '帮助',
+      submenu: [
+        { label: '帮助中心', accelerator: 'F1', click: () => openHelp('quickstart') },
+        { label: '软件信息', click: () => openHelp('about') },
         { type: 'separator' },
-        { role: 'togglefullscreen' },
+        { label: '打开数据目录', click: openData },
+        { label: '打开日志目录', click: openLogs },
+        { type: 'separator' },
+        { label: '复制诊断信息', click: () => sendMenuAction({ action: 'copy-diagnostics' }) },
       ],
     },
   ];
@@ -407,6 +502,14 @@ if (!gotLock) {
   });
 
   app.whenReady().then(async () => {
+    app.setAboutPanelOptions({
+      applicationName: 'EmbeddingGemma 2',
+      applicationVersion: app.getVersion(),
+      version: `Electron ${process.versions.electron} · Chromium ${process.versions.chrome}`,
+      copyright: 'Copyright © 2026 pzibang · MIT License',
+      credits: '本地语义检索 · EmbeddingGemma 2 + llama.cpp\n数据与推理全部留在本机',
+    });
+
     // 第一件事就是把启动动画摆出来
     splash = splashWindow();
 

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileText, Loader2, Trash2, UploadCloud, Database, Cpu } from "lucide-react";
 import type { DocumentRow, Health } from "../api";
 import { fmtBytes, fmtTime } from "../api";
@@ -11,6 +11,7 @@ export function Sidebar({
   onUpload,
   onDelete,
   deletingId,
+  uploadSignal = 0,
 }: {
   health?: Health;
   documents: DocumentRow[];
@@ -18,10 +19,16 @@ export function Sidebar({
   onUpload: (files: File[]) => void;
   onDelete: (id: string) => void;
   deletingId?: string | null;
+  /** 自增计数：菜单「上传文档…」/ Ctrl+O 通过它触发隐藏的 file input */
+  uploadSignal?: number;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const llama = health?.llama;
+
+  useEffect(() => {
+    if (uploadSignal > 0) inputRef.current?.click();
+  }, [uploadSignal]);
 
   const pick = (files: FileList | null) => {
     if (!files?.length) return;
